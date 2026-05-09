@@ -23,16 +23,26 @@ def cmd_ingest(args):
         GSTCouncilScraper,
         AARRulingScraper,
         BudgetSpeechScraper,
+        IndianKanoonScraper,
+        ICAIRepresentationScraper,
+        PIBFinanceScraper,
+        ParliamentaryQuestionsScraper,
     )
     from processors.tagger import TopicTagger
     from processors.chunker import Chunker
     from processors.embedder import Embedder
 
     SCRAPERS = {
+        # Original signal sources
         "cbic_circulars": CBICCircularScraper,
         "gst_council_minutes": GSTCouncilScraper,
         "aar_rulings": AARRulingScraper,
         "budget_speeches": BudgetSpeechScraper,
+        # Phase 2 proprietary corpus — earlier-stage signals
+        "court_judgments": IndianKanoonScraper,
+        "icai_representations": ICAIRepresentationScraper,
+        "pib_finance": PIBFinanceScraper,
+        "parliamentary_questions": ParliamentaryQuestionsScraper,
     }
 
     tagger = TopicTagger()

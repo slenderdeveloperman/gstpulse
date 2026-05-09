@@ -29,6 +29,11 @@ ALLOWED_DOMAINS = {
     "loksabha.nic.in",
     "rajyasabha.nic.in",
     "eci.gov.in",
+    # Phase 2 signal sources
+    "indiankanoon.org",      # court judgment aggregator
+    "pib.gov.in",            # Press Information Bureau
+    "sansad.in",             # Parliamentary portal
+    "egazette.nic.in",       # Official Gazette of India
 }
 
 # Cap response body to 10 MB — guards against runaway/misconfigured servers.
