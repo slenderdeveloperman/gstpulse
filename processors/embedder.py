@@ -110,6 +110,64 @@ class Embedder:
             })
         return out
 
+    def push_to_upstash(self, chunks: list[dict]) -> int:
+        """
+        Push chunks to Upstash Vector for the Edge Function to query.
+        The Upstash index must be configured with all-MiniLM-L6-v2 as its
+        built-in embedding model so both pipeline and edge use the same model.
+
+        Requires env vars: UPSTASH_VECTOR_REST_URL, UPSTASH_VECTOR_REST_TOKEN
+        No-ops silently if env vars are absent (safe for local dev).
+        """
+        import os
+        import httpx as _httpx
+
+        url = os.environ.get("UPSTASH_VECTOR_REST_URL")
+        token = os.environ.get("UPSTASH_VECTOR_REST_TOKEN")
+        if not url or not token:
+            return 0
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+
+        # Use /upsert-data — Upstash embeds the text server-side
+        # (requires index configured with all-MiniLM-L6-v2)
+        vectors = [
+            {
+                "id": c["chunk_id"],
+                "data": c["text"],
+                "metadata": {
+                    "doc_id": c["doc_id"],
+                    "source_id": c["source_id"],
+                    "date": c.get("date") or "",
+                    "topic_tags": ",".join(c.get("topic_tags", [])),
+                    "chunk_index": c["chunk_index"],
+                },
+            }
+            for c in chunks
+        ]
+
+        upserted = 0
+        for i in range(0, len(vectors), 100):
+            batch = vectors[i : i + 100]
+            try:
+                res = _httpx.post(
+                    f"{url}/upsert-data",
+                    headers=headers,
+                    json=batch,
+                    timeout=30,
+                )
+                if res.status_code == 200:
+                    upserted += len(batch)
+                else:
+                    print(f"[upstash] upsert error: {res.status_code} {res.text[:200]}")
+            except Exception as e:
+                print(f"[upstash] request failed: {e}")
+
+        return upserted
+
     def stats(self) -> dict:
         return {
             "total_chunks": self.collection.count(),

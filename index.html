@@ -815,6 +815,153 @@
   .stagger-4 { animation-delay: 0.2s; }
   .stagger-5 { animation-delay: 0.25s; }
 
+  /* ── Query panel ─────────────────────────────────────────────────────────── */
+  .query-section {
+    border-bottom: 1px solid var(--border);
+    padding: 32px 32px 28px;
+    background: var(--bg2);
+  }
+
+  .query-eyebrow {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    color: var(--accent2);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .query-input-row {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border2);
+    background: var(--bg);
+    transition: border-color 0.15s;
+    max-width: 780px;
+  }
+
+  .query-input-row:focus-within {
+    border-color: var(--accent2);
+  }
+
+  .query-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--text);
+    padding: 14px 18px;
+    caret-color: var(--accent);
+  }
+
+  .query-input::placeholder { color: var(--text3); }
+
+  .query-submit {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bg);
+    background: var(--accent2);
+    border: none;
+    padding: 0 20px;
+    cursor: pointer;
+    transition: background 0.12s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .query-submit:hover { background: var(--accent); }
+  .query-submit:disabled { background: var(--border2); cursor: not-allowed; }
+
+  .query-usage {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 10px;
+    letter-spacing: 0.04em;
+  }
+
+  .query-usage .usage-count { color: var(--accent); }
+
+  .query-response-wrap {
+    margin-top: 24px;
+    max-width: 780px;
+    display: none;
+  }
+
+  .query-response-wrap.visible { display: block; }
+
+  .query-response-header {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .query-response-q {
+    color: var(--text2);
+    font-style: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 400px;
+  }
+
+  .query-response-body {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.8;
+    white-space: pre-wrap;
+    font-family: var(--sans);
+  }
+
+  .query-response-body strong { color: var(--text); }
+
+  .query-sources {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .query-source-chip {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    color: var(--text3);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    text-transform: uppercase;
+  }
+
+  .query-loading {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    padding: 20px 0;
+    animation: blink 1s step-end infinite;
+  }
+
+  .query-error {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--danger);
+    padding: 12px 0;
+    letter-spacing: 0.04em;
+  }
+
   @media (max-width: 900px) {
     .main { grid-template-columns: 1fr; }
     .sidebar { display: none; }
@@ -825,6 +972,7 @@
     .prediction-card { padding: 20px 16px; }
     .filters { padding: 12px 16px; }
     .col-header { padding: 12px 16px; }
+    .query-section { padding: 24px 16px; }
   }
 </style>
 </head>
@@ -886,6 +1034,31 @@
       <div class="stat-n">12</div>
       <div class="stat-label">Topics tracked</div>
     </div>
+  </div>
+</div>
+
+<!-- Query panel -->
+<div class="query-section">
+  <div class="query-eyebrow">Ask the corpus — foresight on demand</div>
+  <div class="query-input-row">
+    <input
+      class="query-input"
+      id="query-input"
+      type="text"
+      placeholder="e.g. Will GST on co-working spaces change? What's the outlook for ITC on marketing expenses?"
+      maxlength="500"
+      autocomplete="off"
+    />
+    <button class="query-submit" id="query-submit" onclick="submitQuery()">Analyse →</button>
+  </div>
+  <div class="query-usage" id="query-usage"></div>
+
+  <div class="query-response-wrap" id="query-response-wrap">
+    <div class="query-response-header">
+      Foresight analysis &nbsp;·&nbsp; <span class="query-response-q" id="query-response-q"></span>
+    </div>
+    <div class="query-response-body" id="query-response-body"></div>
+    <div class="query-sources" id="query-sources"></div>
   </div>
 </div>
 
@@ -1362,6 +1535,135 @@ function setFilter(filter, btn) {
       <p>Select a prediction<br>to view signal breakdown</p>
     </div>`;
 }
+
+// ─── Query model ─────────────────────────────────────────────────────────────
+
+const FREE_QUERY_LIMIT = 5;
+const RL_KEY = 'gst_rl_count';
+const RL_RESET_KEY = 'gst_rl_reset';
+
+function getQueryUsage() {
+  // Reset counter if 30 days have passed
+  const reset = parseInt(localStorage.getItem(RL_RESET_KEY) || '0', 10);
+  if (Date.now() > reset) {
+    localStorage.setItem(RL_KEY, '0');
+    localStorage.setItem(RL_RESET_KEY, String(Date.now() + 30 * 24 * 60 * 60 * 1000));
+  }
+  return parseInt(localStorage.getItem(RL_KEY) || '0', 10);
+}
+
+function incrementQueryUsage() {
+  const count = getQueryUsage();
+  localStorage.setItem(RL_KEY, String(count + 1));
+}
+
+function renderQueryUsage() {
+  const used = getQueryUsage();
+  const remaining = Math.max(0, FREE_QUERY_LIMIT - used);
+  const el = document.getElementById('query-usage');
+  if (!el) return;
+  if (remaining === 0) {
+    el.innerHTML = `<span style="color:var(--danger)">Free query limit reached (${FREE_QUERY_LIMIT}/month) — upgrade for unlimited access</span>`;
+    document.getElementById('query-submit').disabled = true;
+  } else {
+    el.innerHTML = `<span class="usage-count">${remaining}</span> free ${remaining === 1 ? 'query' : 'queries'} remaining this month`;
+  }
+}
+
+function setQueryLoading(loading) {
+  const btn = document.getElementById('query-submit');
+  const wrap = document.getElementById('query-response-wrap');
+  const body = document.getElementById('query-response-body');
+  btn.disabled = loading;
+  if (loading) {
+    wrap.classList.add('visible');
+    body.innerHTML = '<div class="query-loading">ANALYSING CORPUS_</div>';
+    document.getElementById('query-sources').innerHTML = '';
+  }
+}
+
+function renderQueryResponse(data, query) {
+  const wrap = document.getElementById('query-response-wrap');
+  const body = document.getElementById('query-response-body');
+  const sourcesEl = document.getElementById('query-sources');
+  const qLabel = document.getElementById('query-response-q');
+
+  wrap.classList.add('visible');
+  qLabel.textContent = escapeHtml(query);
+
+  if (data.error) {
+    const msgs = {
+      rate_limited: 'Monthly query limit reached. Upgrade for unlimited access.',
+      no_context: 'No relevant documents found — ingest pipeline may not have run yet.',
+      llm_unavailable: 'Analysis service temporarily unavailable. Try again shortly.',
+    };
+    body.innerHTML = `<div class="query-error">${escapeHtml(msgs[data.error] || data.message || 'An error occurred.')}</div>`;
+    sourcesEl.innerHTML = '';
+    return;
+  }
+
+  // Render answer — bold **text** markdown
+  const formatted = escapeHtml(data.answer || '')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  body.innerHTML = formatted;
+
+  // Source chips
+  if (data.sources?.length) {
+    sourcesEl.innerHTML = '<span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-right:8px;">Sources</span>' +
+      data.sources.map(s =>
+        `<div class="query-source-chip">${escapeHtml(s.source_id || '')}${s.date ? ' · ' + escapeHtml(s.date.slice(0, 10)) : ''}</div>`
+      ).join('');
+  }
+
+  // Update remaining count from server response
+  if (typeof data.remaining_queries === 'number') {
+    const el = document.getElementById('query-usage');
+    if (el) {
+      el.innerHTML = `<span class="usage-count">${data.remaining_queries}</span> free ${data.remaining_queries === 1 ? 'query' : 'queries'} remaining this month`;
+    }
+  }
+}
+
+async function submitQuery() {
+  const input = document.getElementById('query-input');
+  const query = (input?.value || '').trim();
+  if (!query || query.length < 5) return;
+
+  // Client-side soft gate
+  if (getQueryUsage() >= FREE_QUERY_LIMIT) {
+    renderQueryResponse({ error: 'rate_limited' }, query);
+    return;
+  }
+
+  setQueryLoading(true);
+  incrementQueryUsage();
+  renderQueryUsage();
+
+  try {
+    const res = await fetch('/api/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    const data = await res.json();
+    renderQueryResponse(data, query);
+  } catch (e) {
+    renderQueryResponse({ error: 'llm_unavailable', message: 'Network error.' }, query);
+  } finally {
+    document.getElementById('query-submit').disabled = getQueryUsage() >= FREE_QUERY_LIMIT;
+  }
+}
+
+// Allow Enter key to submit
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('query-input');
+  if (input) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitQuery();
+    });
+  }
+  renderQueryUsage();
+});
 
 // ─── Init ──────────────────────────────────────────────────────────────────────
 async function init() {

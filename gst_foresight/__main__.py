@@ -65,6 +65,7 @@ def cmd_ingest(args):
         # Chunk + embed new processed documents
         chunked = 0
         embedded = 0
+        pushed = 0
         for path in Path("data/processed").glob("*.json"):
             if chunker.chunks_exist(path):
                 continue
@@ -73,8 +74,10 @@ def cmd_ingest(args):
                 chunked += 1
                 new_vectors = embedder.embed_chunks(chunks)
                 embedded += new_vectors
+                pushed += embedder.push_to_upstash(chunks)
         if chunked:
-            print(f"[ingest] {source_id}: chunked {chunked} docs → {embedded} new vectors")
+            upstash_note = f", {pushed} pushed to Upstash" if pushed else ""
+            print(f"[ingest] {source_id}: chunked {chunked} docs → {embedded} new vectors{upstash_note}")
 
 
 def cmd_predict(args):
