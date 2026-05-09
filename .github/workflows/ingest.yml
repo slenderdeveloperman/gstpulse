@@ -1,0 +1,91 @@
+name: GST Foresight — Scheduled Ingest
+
+on:
+  schedule:
+    # 03:00 UTC daily ≈ 08:30 IST — fresh data before Indian business hours
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Specific source to ingest (leave blank for --all)'
+        required: false
+        default: ''
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    permissions:
+      contents: write  # needed to commit latest.json back to main
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Cache pip downloads — sentence-transformers pulls ~200 MB of torch
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      # Cache the sentence-transformers model weights (~80 MB)
+      - name: Cache HuggingFace model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-all-MiniLM-L6-v2
+
+      # Cache ChromaDB vector store — skip re-embedding already indexed chunks
+      - name: Cache vector store
+        uses: actions/cache@v4
+        with:
+          path: data/vectors
+          key: vectors-${{ github.sha }}
+          restore-keys: vectors-
+
+      - name: Install dependencies
+        run: python3 -m pip install -r requirements.txt
+
+      - name: Run ingest pipeline
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ -n "${{ github.event.inputs.source }}" ]; then
+            python3 -m gst_foresight ingest --source "${{ github.event.inputs.source }}"
+          else
+            python3 -m gst_foresight ingest --all
+          fi
+
+      - name: Generate predictions
+        run: python3 -m gst_foresight predict
+
+      - name: Commit updated predictions
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage only the predictions file — never commit raw scraped data
+          git add data/predictions/latest.json
+
+          if git diff --cached --quiet; then
+            echo "No prediction changes — nothing to commit"
+          else
+            git commit -m "chore: update predictions [skip ci]
+
+Automated ingest run: $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
+
+      - name: Show status
+        run: python3 -m gst_foresight status
