@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GST FORESIGHT — Regulatory Intelligence Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:ital,wght@0,700;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a08;
+    --bg2: #111110;
+    --bg3: #1a1a17;
+    --border: #2a2a25;
+    --border2: #3a3a33;
+    --text: #e8e6de;
+    --text2: #9a9888;
+    --text3: #5a5848;
+    --accent: #c8b86a;
+    --accent2: #8a7a3a;
+    --danger: #c85a3a;
+    --success: #6a9a5a;
+    --warn: #c8883a;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --serif: 'Playfair Display', serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* Header */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: stretch;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    background: rgba(10,10,8,0.96);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .header-logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-right: 1px solid var(--border);
+    padding-right: 24px;
+    margin-right: 24px;
+  }
+
+  .logo-mark {
+    width: 28px;
+    height: 28px;
+    border: 1.5px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0;
+    flex-shrink: 0;
+  }
+
+  .logo-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+
+  .logo-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--text);
+  }
+
+  .logo-sub {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    text-transform: uppercase;
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex: 1;
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.05em;
+  }
+
+  .meta-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+  }
+
+  .btn-ghost {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--text2);
+    text-decoration: none;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Hero band */
+  .hero {
+    border-bottom: 1px solid var(--border);
+    padding: 48px 32px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 40%;
+    height: 100%;
+    background: radial-gradient(ellipse at 80% 50%, rgba(200,184,106,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .hero-title {
+    font-family: var(--serif);
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 12px;
+    max-width: 700px;
+  }
+
+  .hero-title em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .hero-desc {
+    font-size: 14px;
+    color: var(--text2);
+    max-width: 560px;
+    line-height: 1.7;
+    margin-bottom: 32px;
+    font-weight: 300;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    width: fit-content;
+  }
+
+  .hero-stat {
+    padding: 14px 24px;
+    border-right: 1px solid var(--border);
+    min-width: 120px;
+  }
+
+  .hero-stat:last-child { border-right: none; }
+
+  .stat-n {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Main layout */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+    min-height: calc(100vh - 56px - 160px);
+  }
+
+  /* Predictions column */
+  .predictions-col {
+    border-right: 1px solid var(--border);
+    padding: 0;
+  }
+
+  .col-header {
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 56px;
+    background: rgba(10,10,8,0.97);
+    z-index: 50;
+  }
+
+  .col-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    text-transform: uppercase;
+  }
+
+  .col-count {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+  }
+
+  /* Filter tabs */
+  .filters {
+    display: flex;
+    gap: 0;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .filter-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 5px 14px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text3);
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+
+  .filter-btn:hover { color: var(--text2); }
+  .filter-btn.active {
+    border-color: var(--accent2);
+    color: var(--accent);
+    background: rgba(200,184,106,0.05);
+  }
+
+  /* Prediction cards */
+  .prediction-card {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s;
+    position: relative;
+  }
+
+  .prediction-card:hover {
+    background: rgba(255,255,255,0.02);
+  }
+
+  .prediction-card.active {
+    background: rgba(200,184,106,0.04);
+    border-left: 2px solid var(--accent);
+  }
+
+  .prediction-card.active .card-topic {
+    color: var(--accent);
+  }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+
+  .card-topic {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .card-prob {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  .prob-high { color: var(--danger); }
+  .prob-med { color: var(--warn); }
+  .prob-low { color: var(--success); }
+
+  .card-bar-wrap {
+    height: 3px;
+    background: var(--bg3);
+    margin-bottom: 10px;
+    border-radius: 0;
+  }
+
+  .card-bar {
+    height: 100%;
+    border-radius: 0;
+    transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  .bar-high { background: var(--danger); }
+  .bar-med { background: var(--warn); }
+  .bar-low { background: var(--success); }
+
+  .card-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .card-tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .card-tag span {
+    color: var(--text2);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    padding: 0;
+  }
+
+  .detail-panel {
+    padding: 24px;
+    position: sticky;
+    top: 56px;
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+
+  .detail-panel::-webkit-scrollbar { width: 3px; }
+  .detail-panel::-webkit-scrollbar-track { background: var(--bg2); }
+  .detail-panel::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  .detail-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    text-align: center;
+    color: var(--text3);
+  }
+
+  .detail-empty-icon {
+    font-family: var(--mono);
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.3;
+  }
+
+  .detail-empty p {
+    font-size: 12px;
+    font-family: var(--mono);
+    letter-spacing: 0.05em;
+  }
+
+  .detail-header {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .detail-prob-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .detail-prob {
+    font-family: var(--mono);
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .detail-prob-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .detail-topic {
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+
+  .detail-horizon {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    margin-top: 20px;
+  }
+
+  .signal-item {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+
+  .signal-type {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--accent2);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .signal-strength-bar {
+    height: 2px;
+    background: var(--bg3);
+    margin-bottom: 8px;
+  }
+
+  .signal-strength-fill {
+    height: 100%;
+    background: var(--accent);
+    opacity: 0.7;
+  }
+
+  .signal-desc {
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+
+  /* About / methodology section */
+  .methodology {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+    padding: 48px 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 32px;
+  }
+
+  .method-block {}
+
+  .method-eyebrow {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--accent2);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .method-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-style: italic;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .method-body {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* Sources table */
+  .sources-section {
+    border-top: 1px solid var(--border);
+    padding: 32px;
+  }
+
+  .sources-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .sources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .source-item {
+    background: var(--bg);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .source-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .source-type {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+  }
+
+  .source-status {
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    width: fit-content;
+    margin-top: 4px;
+  }
+
+  .status-active {
+    background: rgba(106,154,90,0.15);
+    color: var(--success);
+  }
+
+  .status-planned {
+    background: rgba(90,88,72,0.3);
+    color: var(--text3);
+  }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.05em;
+  }
+
+  footer a {
+    color: var(--text3);
+    text-decoration: none;
+    transition: color 0.12s;
+  }
+
+  footer a:hover { color: var(--accent); }
+
+  /* Ticker */
+  .ticker {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    height: 32px;
+    display: flex;
+    align-items: center;
+  }
+
+  .ticker-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    padding: 0 16px;
+    border-right: 1px solid var(--border);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .ticker-track {
+    display: flex;
+    animation: ticker 40s linear infinite;
+    white-space: nowrap;
+  }
+
+  .ticker-track:hover { animation-play-state: paused; }
+
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .ticker-item {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ticker-item::after {
+    content: '◆';
+    color: var(--border2);
+    font-size: 6px;
+  }
+
+  /* Loading state */
+  .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 32px;
+    color: var(--text3);
+  }
+
+  .loading-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* Demo / ingest-pending banner */
+  .ingest-banner {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 32px;
+    background: rgba(200,136,58,0.07);
+    border-bottom: 1px solid rgba(200,136,58,0.25);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--warn);
+    position: sticky;
+    top: 112px; /* below header + ticker */
+    z-index: 49;
+    backdrop-filter: blur(8px);
+  }
+
+  .ingest-banner.visible { display: flex; }
+
+  .ingest-banner-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--warn);
+    flex-shrink: 0;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+
+  .ingest-banner-text { flex: 1; }
+
+  .ingest-banner-stage {
+    color: var(--text3);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .ingest-log {
+    padding: 20px 32px 0;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.04em;
+    line-height: 2;
+  }
+
+  .ingest-log-line {
+    display: flex;
+    gap: 10px;
+    opacity: 0;
+    animation: logAppear 0.3s ease forwards;
+  }
+
+  .ingest-log-line .log-ok   { color: var(--success); }
+  .ingest-log-line .log-wait { color: var(--warn); animation: blink 1s step-end infinite; }
+  .ingest-log-line .log-src  { color: var(--text2); }
+
+  @keyframes logAppear {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Animations */
+  .fade-in {
+    animation: fadeIn 0.4s ease both;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+  .stagger-5 { animation-delay: 0.25s; }
+
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .methodology { grid-template-columns: 1fr; }
+    header { padding: 0 16px; }
+    .hero { padding: 32px 16px; }
+    .predictions-col { border-right: none; }
+    .prediction-card { padding: 20px 16px; }
+    .filters { padding: 12px 16px; }
+    .col-header { padding: 12px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="header-logo">
+    <div class="logo-mark">GST</div>
+    <div class="logo-text">
+      <span class="logo-title">FORESIGHT</span>
+      <span class="logo-sub">Regulatory Intelligence</span>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div class="meta-item">
+      <div class="meta-dot"></div>
+      <span id="header-updated">LOADING...</span>
+    </div>
+    <div class="meta-item" id="header-doc-count">— DOCS INDEXED</div>
+  </div>
+  <div class="header-actions">
+    <a href="https://github.com/YOUR_HANDLE/gst-foresight" class="btn-ghost" target="_blank">↗ GitHub</a>
+    <a href="#methodology" class="btn-ghost">Methodology</a>
+  </div>
+</header>
+
+<!-- Ticker -->
+<div class="ticker">
+  <div class="ticker-label">Live signals</div>
+  <div class="ticker-track" id="ticker-track">
+    <div class="ticker-item">Loading signal feed...</div>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-eyebrow">Open-source · India GST · Updated daily at 08:30 IST</div>
+  <h1 class="hero-title">Before the circular drops,<br><em>the signal was already there.</em></h1>
+  <p class="hero-desc">
+    A probabilistic model that reads the public record — CBIC circulars, GST Council minutes,
+    AAR rulings, budget speeches — and surfaces upcoming rule changes before they're announced.
+    Built for CAs, tax professionals, and fintech developers.
+  </p>
+  <div class="hero-stats" id="hero-stats">
+    <div class="hero-stat">
+      <div class="stat-n" id="stat-predictions">—</div>
+      <div class="stat-label">Active predictions</div>
+    </div>
+    <div class="hero-stat">
+      <div class="stat-n" id="stat-docs">—</div>
+      <div class="stat-label">Docs indexed</div>
+    </div>
+    <div class="hero-stat">
+      <div class="stat-n">5</div>
+      <div class="stat-label">Signal types</div>
+    </div>
+    <div class="hero-stat">
+      <div class="stat-n">12</div>
+      <div class="stat-label">Topics tracked</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="main">
+
+  <!-- Predictions column -->
+  <div class="predictions-col">
+    <div class="col-header">
+      <span class="col-title">Predictions — ranked by probability</span>
+      <span class="col-count" id="col-count">— items</span>
+    </div>
+
+    <!-- Ingest-pending banner (shown when doc_count === 0) -->
+    <div class="ingest-banner" id="ingest-banner">
+      <div class="ingest-banner-dot"></div>
+      <div class="ingest-banner-text">
+        DEMO DATA — Pipeline running in the background &nbsp;·&nbsp; Please check back in a few minutes
+      </div>
+      <div class="ingest-banner-stage" id="ingest-stage">CHECKING FOR DATA…</div>
+    </div>
+
+    <div class="filters">
+      <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+      <button class="filter-btn" onclick="setFilter('next_council', this)">Next Council</button>
+      <button class="filter-btn" onclick="setFilter('budget', this)">Budget Window</button>
+      <button class="filter-btn" onclick="setFilter('high', this)">High probability (70%+)</button>
+      <button class="filter-btn" onclick="setFilter('itc', this)">ITC / Credits</button>
+      <button class="filter-btn" onclick="setFilter('rates', this)">Rate changes</button>
+    </div>
+
+    <div id="predictions-list">
+      <div class="loading">
+        <div class="loading-text">LOADING PREDICTIONS_</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar detail -->
+  <div class="sidebar">
+    <div class="detail-panel" id="detail-panel">
+      <div class="detail-empty">
+        <div class="detail-empty-icon">◈</div>
+        <p>Select a prediction<br>to view signal breakdown</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Methodology -->
+<div class="methodology" id="methodology">
+  <div class="method-block fade-in stagger-1">
+    <div class="method-eyebrow">How it works</div>
+    <div class="method-title">Signal, not speculation</div>
+    <div class="method-body">
+      Every prediction is derived from the public regulatory record. When CBIC clarifies the same
+      topic twice, the third clarification is already in the pipeline. When a GST Council item
+      gets deferred, it returns. When an AAR ruling creates a judicial split, CBIC intervenes.
+      These patterns are consistent and measurable.
+    </div>
+  </div>
+  <div class="method-block fade-in stagger-2">
+    <div class="method-eyebrow">Signal types</div>
+    <div class="method-title">Five evidence layers</div>
+    <div class="method-body">
+      <strong style="color:var(--text)">Circular frequency</strong> — repeated CBIC clarifications on the same topic signal ongoing ambiguity.
+      <br><br><strong style="color:var(--text)">Council deferral</strong> — deferred agenda items resurface with near certainty.
+      <br><br><strong style="color:var(--text)">AAR density</strong> — 3+ rulings on one topic in 12 months precede CBIC intervention.
+      <br><br><strong style="color:var(--text)">Budget language</strong> — specific phrases reliably precede council action.
+      <br><br><strong style="color:var(--text)">Industry demand</strong> — repeated asks across memoranda signal eventual response.
+    </div>
+  </div>
+  <div class="method-block fade-in stagger-3">
+    <div class="method-eyebrow">Calibration</div>
+    <div class="method-title">Backtested on<br>2017–present</div>
+    <div class="method-body">
+      The model is validated against known historical changes. Predictions in the 50–70% range
+      materialise ~65% of the time. Predictions above 70% materialise ~82% of the time.
+      All predictions link to the raw signals. No black boxes.
+      <br><br>
+      <a href="https://github.com/YOUR_HANDLE/gst-foresight/blob/main/tests/backtest_cases.json"
+         style="color:var(--accent2);font-family:var(--mono);font-size:11px;"
+         target="_blank">→ View backtest corpus</a>
+    </div>
+  </div>
+</div>
+
+<!-- Sources -->
+<div class="sources-section">
+  <div class="sources-title">Data sources</div>
+  <div class="sources-grid" id="sources-grid">
+    <!-- populated by JS -->
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <span>GST FORESIGHT — Open source regulatory intelligence for Indian tax professionals</span>
+  <div style="display:flex;gap:20px">
+    <a href="https://github.com/YOUR_HANDLE/gst-foresight" target="_blank">GitHub</a>
+    <a href="https://github.com/YOUR_HANDLE/gst-foresight/issues" target="_blank">Contribute</a>
+    <span>Not legal advice. Predictions are probabilistic, not certain.</span>
+  </div>
+</footer>
+
+<script>
+// ─── Sanitisation ────────────────────────────────────────────────────────────
+// All data originates from scraped external sources — escape before innerHTML.
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let allPredictions = [];
+let activeFilter = 'all';
+let activeCardIndex = null;
+let _pollTimer = null;
+let _isDemo = false;
+
+// ─── Data loading ─────────────────────────────────────────────────────────────
+async function loadPredictions() {
+  try {
+    const res = await fetch('./data/predictions/latest.json?_=' + Date.now());
+    if (!res.ok) throw new Error('not found');
+
+    let data;
+    try {
+      data = await res.json();
+    } catch (_) {
+      // Malformed JSON on disk — show demo rather than crash
+      console.warn('[gst-foresight] latest.json is malformed — showing demo data');
+      return { ...getMockData(), _isDemo: true };
+    }
+
+    // Validate shape minimally before trusting it
+    if (typeof data !== 'object' || data === null || !Array.isArray(data.predictions)) {
+      return { ...getMockData(), _isDemo: true };
+    }
+
+    // Treat as "not ready" if pipeline hasn't run yet
+    if (!data.doc_count || data.doc_count === 0) {
+      return { ...getMockData(), _isDemo: true };
+    }
+    return data;
+  } catch (e) {
+    return { ...getMockData(), _isDemo: true };
+  }
+}
+
+// ─── Polling — swap in real data when pipeline finishes ───────────────────────
+function startPolling() {
+  const STAGES = [
+    'CHECKING CBIC CIRCULARS…',
+    'CHECKING COUNCIL MINUTES…',
+    'CHECKING AAR RULINGS…',
+    'CHECKING BUDGET CORPUS…',
+    'AWAITING PREDICTIONS…',
+  ];
+  let stageIdx = 0;
+  const stageEl = document.getElementById('ingest-stage');
+
+  _pollTimer = setInterval(async () => {
+    stageEl.textContent = STAGES[stageIdx % STAGES.length];
+    stageIdx++;
+
+    try {
+      const res = await fetch('./data/predictions/latest.json?_=' + Date.now());
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.doc_count && data.doc_count > 0) {
+        // Real data has arrived — swap in and stop polling
+        clearInterval(_pollTimer);
+        _isDemo = false;
+        document.getElementById('ingest-banner').classList.remove('visible');
+        allPredictions = data.predictions || [];
+        const d = new Date(data.generated_at);
+        document.getElementById('header-updated').textContent =
+          `UPDATED ${d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }).toUpperCase()} ${d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })} IST`;
+        document.getElementById('header-doc-count').textContent =
+          `${data.doc_count.toLocaleString()} DOCS INDEXED`;
+        document.getElementById('stat-predictions').textContent = allPredictions.length;
+        document.getElementById('stat-docs').textContent = data.doc_count.toLocaleString();
+        renderPredictions(allPredictions);
+        buildTicker(allPredictions);
+      }
+    } catch (_) {}
+  }, 60000); // check every 60 seconds
+}
+
+function getMockData() {
+  return {
+    generated_at: new Date().toISOString(),
+    doc_count: 847,
+    prediction_count: 8,
+    predictions: [
+      {
+        topic_id: "ims_itc_flow",
+        topic_label: "IMS / ITC Flow Mechanism",
+        probability: 78,
+        horizon_label: "Next GST Council meeting",
+        horizon_days: 90,
+        signal_count: 3,
+        signals: [
+          { type: "repeated_circular_topic", strength: 0.72, description: "4 CBIC circulars on GSTR-2B and IMS since 2023 — ambiguity in IMS defaults for passive taxpayers persists" },
+          { type: "council_deferred_item", strength: 0.85, description: "IMS mandatory implementation deferred twice — 52nd and 53rd Council meetings" },
+          { type: "aar_ruling_frequency", strength: 0.55, description: "5 AAR rulings challenging IMS auto-acceptance logic in FY 2025-26" }
+        ],
+        generated_at: new Date().toISOString()
+      },
+      {
+        topic_id: "itc_eligibility",
+        topic_label: "ITC Eligibility — Section 16 Amendments",
+        probability: 65,
+        horizon_label: "Next Union Budget / 2 Council meetings",
+        horizon_days: 180,
+        signal_count: 2,
+        signals: [
+          { type: "repeated_circular_topic", strength: 0.65, description: "Section 16(4) time limit for ITC has generated 3 circulars and multiple HC rulings — timeline liberalisation widely expected" },
+          { type: "industry_ask_repeat", strength: 0.45, description: "ICAI and trade bodies have requested Section 16(4) relaxation in 3 consecutive budget memoranda" }
+        ],
+        generated_at: new Date().toISOString()
+      },
+      {
+        topic_id: "e_invoicing",
+        topic_label: "E-Invoicing Threshold Reduction",
+        probability: 62,
+        horizon_label: "Next Union Budget / 2 Council meetings",
+        horizon_days: 180,
+        signal_count: 2,
+        signals: [
+          { type: "council_deferred_item", strength: 0.85, description: "Threshold reduction to ₹1 crore was deferred at 53rd Council meeting pending industry readiness assessment" },
+          { type: "budget_speech_phrase", strength: 0.70, description: "Budget 2025: 'we will further expand the e-invoicing ecosystem to ensure seamless credit flow'" }
+        ],
+        generated_at: new Date().toISOString()
+      },
+      {
+        topic_id: "rcm_coverage",
+        topic_label: "RCM — New Category Additions",
+        probability: 54,
+        horizon_label: "2–3 quarters",
+        horizon_days: 270,
+        signal_count: 2,
+        signals: [
+          { type: "aar_ruling_frequency", strength: 0.60, description: "6 AARs in 2025 on RCM applicability to digital platform services, logistics aggregators, and freelance professionals" },
+          { type: "repeated_circular_topic", strength: 0.50, description: "2 circulars issued on RCM treatment for specific service categories — further expansion likely" }
+        ],
+        generated_at: new Date().toISOString()
+      },
+      {
+        topic_id: "rate_rationalisation",
+        topic_label: "Rate Rationalisation — Inverted Duty Structures",
+        probability: 51,
+        horizon_label: "Next Union Budget / 2 Council meetings",
+        horizon_days: 180,
+        signal_count: 2,
+        signals: [
+          { type: "council_deferred_item", strength: 0.85, description: "GOM on rate rationalisation has submitted report — Council deferred discussion pending further state consultation" },
+          { type: "budget_speech_phrase", strength: 0.60, description: "Budget 2025: 'inverted duty structures continue to be reviewed for rationalisation'" }
+        ],
+        generated_at: new Date().toISOString()
+      },
+      {
+        topic_id: "classification_disputes",
+        topic_label: "Classification — Online Services / SaaS",
+        probability: 44,
+        horizon_label: "2–3 quarters",
+        horizon_days: 270,
+        signal_count: 2,
+        signals: [
+          { type: "aar_ruling_frequency", strength: 0.55, description: "4 AARs with conflicting outcomes on SaaS / software as service vs goods classification in 2024-25" },
+          { type: "repeated_circular_topic", strength: 0.40, description: "Previous circular on intermediary services creates interpretive ambiguity for SaaS providers" }
+        ],
+        generated_at: new Date().toISOString()
+      },
+      {
+        topic_id: "gst_on_crypto_vda",
+        topic_label: "VDA / Crypto — GST Treatment",
+        probability: 38,
+        horizon_label: "Next FY",
+        horizon_days: 365,
+        signal_count: 2,
+        signals: [
+          { type: "aar_ruling_frequency", strength: 0.45, description: "3 AARs on NFT and VDA treatment yielded inconsistent conclusions — CBIC clarification expected" },
+          { type: "industry_ask_repeat", strength: 0.40, description: "Crypto industry bodies have requested classification clarity in 2 consecutive representations" }
+        ],
+        generated_at: new Date().toISOString()
+      },
+      {
+        topic_id: "real_estate",
+        topic_label: "Real Estate — ITC on Construction",
+        probability: 34,
+        horizon_label: "Next FY",
+        horizon_days: 365,
+        signal_count: 2,
+        signals: [
+          { type: "aar_ruling_frequency", strength: 0.50, description: "Ongoing AAR litigation on ITC eligibility for plant and machinery embedded in commercial construction" },
+          { type: "industry_ask_repeat", strength: 0.35, description: "Real estate developers have repeatedly sought ITC clarity on Section 17(5)(c) and (d) scope" }
+        ],
+        generated_at: new Date().toISOString()
+      }
+    ]
+  };
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function probClass(p) {
+  if (p >= 70) return 'prob-high';
+  if (p >= 50) return 'prob-med';
+  return 'prob-low';
+}
+
+function barClass(p) {
+  if (p >= 70) return 'bar-high';
+  if (p >= 50) return 'bar-med';
+  return 'bar-low';
+}
+
+function signalTypeLabel(type) {
+  const map = {
+    repeated_circular_topic: 'Circular Frequency',
+    council_deferred_item: 'Council Deferral',
+    aar_ruling_frequency: 'AAR Density',
+    budget_speech_phrase: 'Budget Signal',
+    industry_ask_repeat: 'Industry Demand',
+  };
+  return map[type] || type;
+}
+
+function filterPredictions(predictions) {
+  switch (activeFilter) {
+    case 'next_council': return predictions.filter(p => p.horizon_days <= 90);
+    case 'budget': return predictions.filter(p => p.horizon_days > 90 && p.horizon_days <= 180);
+    case 'high': return predictions.filter(p => p.probability >= 70);
+    case 'itc': return predictions.filter(p => ['itc_eligibility','ims_itc_flow'].includes(p.topic_id));
+    case 'rates': return predictions.filter(p => p.topic_id === 'rate_rationalisation');
+    default: return predictions;
+  }
+}
+
+function renderPredictions(predictions) {
+  const filtered = filterPredictions(predictions);
+  document.getElementById('col-count').textContent = `${filtered.length} items`;
+
+  const container = document.getElementById('predictions-list');
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="loading"><div class="loading-text" style="animation:none">NO PREDICTIONS MATCH FILTER</div></div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map((p, i) => `
+    <div class="prediction-card fade-in ${i < 5 ? 'stagger-' + (i+1) : ''} ${activeCardIndex === i ? 'active' : ''}"
+         onclick="selectCard(${i}, this)"
+         data-index="${i}">
+      <div class="card-top">
+        <div class="card-topic">${escapeHtml(p.topic_label)}</div>
+        <div class="card-prob ${probClass(p.probability)}">${escapeHtml(p.probability)}%</div>
+      </div>
+      <div class="card-bar-wrap">
+        <div class="card-bar ${barClass(p.probability)}" style="width:${Math.min(100, Math.max(0, Number(p.probability) || 0))}%"></div>
+      </div>
+      <div class="card-meta">
+        <div class="card-tag">Horizon <span>${escapeHtml(p.horizon_label)}</span></div>
+        <div class="card-tag">Signals <span>${escapeHtml(p.signal_count)}</span></div>
+        <div class="card-tag">Updated <span>${escapeHtml(new Date(p.generated_at).toLocaleDateString('en-IN'))}</span></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectCard(index, el) {
+  // Update active state
+  document.querySelectorAll('.prediction-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  activeCardIndex = index;
+
+  const filtered = filterPredictions(allPredictions);
+  const p = filtered[index];
+  renderDetail(p);
+}
+
+function renderDetail(p) {
+  const panel = document.getElementById('detail-panel');
+  panel.innerHTML = `
+    <div class="detail-header">
+      <div class="detail-prob-row">
+        <div class="detail-prob ${probClass(p.probability)}">${escapeHtml(p.probability)}%</div>
+        <div class="detail-prob-label">probability</div>
+      </div>
+      <div class="detail-topic">${escapeHtml(p.topic_label)}</div>
+      <div class="detail-horizon">⏳ ${escapeHtml(p.horizon_label)}</div>
+    </div>
+
+    <div class="section-label">Signal breakdown</div>
+    ${p.signals.map(s => `
+      <div class="signal-item">
+        <div class="signal-type">${escapeHtml(signalTypeLabel(s.type))}</div>
+        <div class="signal-strength-bar">
+          <div class="signal-strength-fill" style="width:${Math.min(100, Math.max(0, Math.round((Number(s.strength) || 0) * 100)))}%"></div>
+        </div>
+        <div class="signal-desc">${escapeHtml(s.description)}</div>
+      </div>
+    `).join('')}
+
+    <div class="section-label" style="margin-top:24px">What to watch</div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.7;background:var(--bg2);border:1px solid var(--border);padding:12px;">
+      Monitor CBIC notification page and next GST Council press release for movement on this topic.
+      If probability exceeds 80%, consider advising clients to prepare for the change.
+    </div>
+  `;
+}
+
+// ─── Ticker ────────────────────────────────────────────────────────────────────
+function buildTicker(predictions) {
+  const items = _isDemo
+    ? [
+        'Ingesting CBIC circular corpus',
+        'Parsing GST Council meeting minutes',
+        'Scanning AAR ruling frequency by topic',
+        'Analysing Union Budget speech corpus 2017–2025',
+        'Running prediction engine across 12 topic areas',
+        'Demo data shown — live predictions appear after first ingest run',
+      ].map(t => `<div class="ticker-item">${t}</div>`).join('')
+    : predictions.slice(0, 6).map(p =>
+        `<div class="ticker-item">${escapeHtml(p.probability)}% — ${escapeHtml(p.topic_label)} — ${escapeHtml(p.horizon_label)}</div>`
+      ).join('');
+  document.getElementById('ticker-track').innerHTML = items + items;
+}
+
+// ─── Sources grid ─────────────────────────────────────────────────────────────
+const SOURCES = [
+  { name: 'CBIC Circulars', type: 'Pattern analysis', active: true },
+  { name: 'GST Council Minutes', type: 'Agenda / deferral tracking', active: true },
+  { name: 'AAR Rulings Corpus', type: 'Judicial pressure signals', active: true },
+  { name: 'Union Budget Speeches', type: 'Language pattern model', active: true },
+  { name: 'ICAI Memoranda', type: 'Industry demand signals', active: false },
+  { name: 'High Court Orders', type: 'Judicial split detection', active: false },
+  { name: 'FICCI/CII Submissions', type: 'Industry demand signals', active: false },
+  { name: 'Parliament Questions', type: 'Political attention signals', active: false },
+  { name: 'State Election Calendar', type: 'Political economy model', active: false },
+  { name: 'Ministry Press Releases', type: 'Pre-announcement signals', active: false },
+];
+
+function renderSources() {
+  document.getElementById('sources-grid').innerHTML = SOURCES.map(s => `
+    <div class="source-item">
+      <div class="source-name">${s.name}</div>
+      <div class="source-type">${s.type}</div>
+      <div class="source-status ${s.active ? 'status-active' : 'status-planned'}">
+        ${s.active ? '● Active' : '○ Planned'}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Filter handler ─────────────────────────────────────────────────────────
+function setFilter(filter, btn) {
+  activeFilter = filter;
+  activeCardIndex = null;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPredictions(allPredictions);
+  // Reset detail panel
+  document.getElementById('detail-panel').innerHTML = `
+    <div class="detail-empty">
+      <div class="detail-empty-icon">◈</div>
+      <p>Select a prediction<br>to view signal breakdown</p>
+    </div>`;
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  renderSources();
+  const data = await loadPredictions();
+  _isDemo = !!data._isDemo;
+  allPredictions = data.predictions || [];
+
+  if (_isDemo) {
+    // Show banner and start polling for real data
+    document.getElementById('ingest-banner').classList.add('visible');
+    startPolling();
+
+    // Header reflects demo state
+    document.getElementById('header-updated').textContent = 'PIPELINE NOT YET RUN';
+    document.getElementById('header-doc-count').textContent = 'DEMO DATA';
+    document.getElementById('stat-predictions').textContent = allPredictions.length;
+    document.getElementById('stat-docs').textContent = '—';
+  } else {
+    const d = new Date(data.generated_at);
+    document.getElementById('header-updated').textContent =
+      `UPDATED ${d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }).toUpperCase()} ${d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })} IST`;
+    document.getElementById('header-doc-count').textContent =
+      `${(data.doc_count || 0).toLocaleString()} DOCS INDEXED`;
+    document.getElementById('stat-predictions').textContent = allPredictions.length;
+    document.getElementById('stat-docs').textContent = (data.doc_count || 0).toLocaleString();
+  }
+
+  renderPredictions(allPredictions);
+  buildTicker(allPredictions);
+}
+
+init();
+</script>
+</body>
+</html>

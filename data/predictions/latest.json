@@ -1,0 +1,30 @@
+{
+  "generated_at": "2026-05-08T00:00:00",
+  "doc_count": 0,
+  "prediction_count": 0,
+  "note": "Predictions will appear here after running: python -m gst_foresight ingest --all && python -m gst_foresight predict",
+  "predictions": [],
+  "example_prediction": {
+    "topic_id": "ims_itc_flow",
+    "topic_label": "IMS / ITC Flow Mechanism",
+    "probability": 72.0,
+    "horizon_label": "Next GST Council meeting",
+    "horizon_days": 90,
+    "signal_count": 2,
+    "signals": [
+      {
+        "type": "repeated_circular_topic",
+        "strength": 0.7,
+        "description": "3 CBIC circulars on this topic — ongoing ambiguity suggests further clarification likely",
+        "source_docs": ["cbic_circ_abc", "cbic_circ_def"]
+      },
+      {
+        "type": "council_deferred_item",
+        "strength": 0.85,
+        "description": "Item deferred in 1 GST Council meeting(s) — high likelihood of resolution in next meeting",
+        "source_docs": ["gst_council_52"]
+      }
+    ],
+    "generated_at": "2026-05-08T00:00:00"
+  }
+}

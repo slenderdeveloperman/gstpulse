@@ -1,0 +1,140 @@
+[
+  {
+    "description": "IMS introduction (October 2024) — preceded by repeated GSTR-2B clarification circulars",
+    "topic_id": "ims_itc_flow",
+    "topic_label": "IMS / ITC Flow Mechanism",
+    "materialised": true,
+    "actual_lag_days": 180,
+    "signals_at_time": [
+      {
+        "type": "repeated_circular_topic",
+        "strength": 0.70,
+        "description": "3 circulars on GSTR-2B static statement and ITC flow in 2022-2023",
+        "source_docs": ["cbic_circ_170_2022", "cbic_circ_183_2022", "cbic_circ_193_2023"],
+        "horizon_days": 180
+      },
+      {
+        "type": "council_deferred_item",
+        "strength": 0.85,
+        "description": "ITC matching mechanism deferred at 48th and 49th council meetings",
+        "source_docs": ["gst_council_48", "gst_council_49"],
+        "horizon_days": 90
+      }
+    ]
+  },
+  {
+    "description": "Rule 37A ITC reversal for non-filing suppliers — introduced via Finance Act 2022",
+    "topic_id": "itc_eligibility",
+    "topic_label": "ITC Eligibility Rules",
+    "materialised": true,
+    "actual_lag_days": 240,
+    "signals_at_time": [
+      {
+        "type": "repeated_circular_topic",
+        "strength": 0.65,
+        "description": "Multiple circulars on ITC eligibility where suppliers hadn't filed",
+        "source_docs": ["cbic_circ_135_2020", "cbic_circ_148_2021"],
+        "horizon_days": 180
+      },
+      {
+        "type": "aar_ruling_frequency",
+        "strength": 0.55,
+        "description": "5+ AARs in 2021 on ITC availability despite supplier non-compliance",
+        "source_docs": ["aar_various_2021"],
+        "horizon_days": 180
+      },
+      {
+        "type": "budget_speech_phrase",
+        "strength": 0.70,
+        "description": "Budget 2022: 'measures to ensure ITC chain integrity'",
+        "source_docs": ["budget_speech_2022"],
+        "horizon_days": 180
+      }
+    ]
+  },
+  {
+    "description": "E-invoicing threshold reduction to ₹5 crore — announced 2023",
+    "topic_id": "e_invoicing",
+    "topic_label": "E-Invoicing Expansion",
+    "materialised": true,
+    "actual_lag_days": 120,
+    "signals_at_time": [
+      {
+        "type": "council_deferred_item",
+        "strength": 0.85,
+        "description": "Threshold reduction discussed at 47th council, deferred",
+        "source_docs": ["gst_council_47"],
+        "horizon_days": 90
+      },
+      {
+        "type": "industry_ask_repeat",
+        "strength": 0.45,
+        "description": "ICAI and industry bodies repeatedly asked for phased e-invoicing expansion",
+        "source_docs": ["icai_memo_2022", "ficci_gst_2022"],
+        "horizon_days": 365
+      }
+    ]
+  },
+  {
+    "description": "Online gaming / casino GST at 28% on face value — October 2023",
+    "topic_id": "classification_disputes",
+    "topic_label": "Classification Clarifications",
+    "materialised": true,
+    "actual_lag_days": 300,
+    "signals_at_time": [
+      {
+        "type": "aar_ruling_frequency",
+        "strength": 0.75,
+        "description": "7+ AARs on online gaming classification in 2021-2022 with conflicting outcomes",
+        "source_docs": ["aar_gameskraft", "aar_delta_corp", "aar_head_digital"],
+        "horizon_days": 180
+      },
+      {
+        "type": "council_deferred_item",
+        "strength": 0.85,
+        "description": "Online gaming GOM report deferred across 49th and 50th council meetings",
+        "source_docs": ["gst_council_49", "gst_council_50"],
+        "horizon_days": 90
+      }
+    ]
+  },
+  {
+    "description": "GST on corporate guarantees — clarification circular 2023",
+    "topic_id": "valuation",
+    "topic_label": "Valuation Rules",
+    "materialised": true,
+    "actual_lag_days": 150,
+    "signals_at_time": [
+      {
+        "type": "aar_ruling_frequency",
+        "strength": 0.60,
+        "description": "4 conflicting AARs on corporate guarantee valuation in FY2022-23",
+        "source_docs": ["aar_corp_guarantee_2022a", "aar_corp_guarantee_2022b"],
+        "horizon_days": 180
+      },
+      {
+        "type": "repeated_circular_topic",
+        "strength": 0.50,
+        "description": "2 earlier circulars on related party transactions touching guarantee treatment",
+        "source_docs": ["cbic_circ_related_party"],
+        "horizon_days": 180
+      }
+    ]
+  },
+  {
+    "description": "Composition scheme for service providers — did NOT change despite signals (negative case)",
+    "topic_id": "msme_composition",
+    "topic_label": "MSME / Composition Scheme",
+    "materialised": false,
+    "actual_lag_days": null,
+    "signals_at_time": [
+      {
+        "type": "industry_ask_repeat",
+        "strength": 0.45,
+        "description": "ICAI asked for composition expansion for service providers for 2 consecutive years",
+        "source_docs": ["icai_memo_2021", "icai_memo_2022"],
+        "horizon_days": 365
+      }
+    ]
+  }
+]

@@ -1,0 +1,177 @@
+# Topic taxonomy — the GST rule areas we track
+# Add new topics here. Format: id, label, description, related_provisions
+topics:
+  - id: itc_eligibility
+    label: ITC Eligibility Rules
+    description: Section 16/17 amendments, blocked credits, input service distributor
+    provisions: [sec_16, sec_17, rule_36, rule_37A]
+    
+  - id: rcm_coverage
+    label: Reverse Charge Mechanism
+    description: New categories added to RCM, changes to existing RCM treatment
+    provisions: [sec_9_3, sec_9_4, notification_13_2017]
+
+  - id: rate_rationalisation
+    label: Rate Changes
+    description: GST rate changes across goods/services categories
+    provisions: [schedule_1, schedule_2, schedule_3]
+
+  - id: return_format
+    label: Return Format / Process Changes
+    description: Changes to GSTR-1, GSTR-3B, GSTR-9 format or filing process
+    provisions: [rule_60, rule_61, rule_80]
+
+  - id: ims_itc_flow
+    label: IMS / ITC Flow Mechanism
+    description: Invoice Management System rules, GSTR-2B computation changes
+    provisions: [rule_60B, notification_ims_2024]
+
+  - id: e_invoicing
+    label: E-Invoicing Expansion
+    description: Threshold changes, new sectors mandated, format changes
+    provisions: [rule_48, notification_13_2020]
+
+  - id: classification_disputes
+    label: Classification Clarifications
+    description: HSN classification disputes, composite vs mixed supply
+    provisions: [sec_8, rule_7, aar_rulings]
+
+  - id: valuation
+    label: Valuation Rules
+    description: Transaction value disputes, related party transactions, discounts
+    provisions: [sec_15, rule_27_35]
+
+  - id: place_of_supply
+    label: Place of Supply
+    description: OIDAR, intermediary services, cross-border B2B/B2C
+    provisions: [sec_12, sec_13]
+
+  - id: gst_on_crypto_vda
+    label: VDA / Crypto Treatment
+    description: Virtual digital assets, NFTs, crypto transactions under GST
+    provisions: [sec_2_52, notification_pending]
+
+  - id: msme_composition
+    label: MSME / Composition Scheme
+    description: Threshold changes, composition rates, eligibility expansions
+    provisions: [sec_10, rule_7]
+
+  - id: real_estate
+    label: Real Estate / Construction
+    description: ITC on construction, works contract, affordable housing rates
+    provisions: [sec_17_5, notification_11_2017]
+
+# Data sources
+sources:
+  cbic_circulars:
+    name: CBIC Circulars
+    url: https://cbic.gov.in/htdocs-cbic/gst/circulars-cgst-english.htm
+    type: html_scraper
+    signal_type: historical_pattern
+    update_schedule: weekly
+    weight: 0.35  # highest weight — direct regulatory output
+    active: true
+
+  gst_council_minutes:
+    name: GST Council Meeting Minutes
+    url: https://gstcouncil.gov.in/gst-council-meeting
+    type: html_scraper  
+    signal_type: council_agenda
+    update_schedule: per_meeting
+    weight: 0.30
+    active: true
+
+  aar_rulings:
+    name: Advance Authority Rulings
+    url: https://cbic-gst.gov.in/advance-ruling.html
+    type: html_scraper
+    signal_type: judicial_pressure
+    update_schedule: weekly
+    weight: 0.20
+    active: true
+
+  budget_speeches:
+    name: Union Budget Speeches
+    url: https://indiabudget.gov.in/bspeech.php
+    type: pdf_scraper
+    signal_type: political_signal
+    update_schedule: annual
+    weight: 0.15
+    active: true
+
+  icai_memoranda:
+    name: ICAI Pre-Budget Memoranda
+    url: https://icai.org/category/pre-budget-memoranda
+    type: html_scraper
+    signal_type: industry_demand
+    update_schedule: annual
+    weight: 0.10
+    active: false  # enable before budget season
+
+  # PLANNED SOURCES — not yet active
+  high_court_orders:
+    name: High Court GST Orders
+    url: null  # multiple HCs — needs aggregator
+    type: custom
+    signal_type: judicial_pressure
+    update_schedule: weekly
+    weight: 0.15
+    active: false
+    notes: "Good aggregators: Indian Kanoon GST filter, TaxSutra"
+
+  ficci_submissions:
+    name: FICCI GST Committee Submissions
+    url: https://ficci.in/economic-affairs
+    type: html_scraper
+    signal_type: industry_demand
+    update_schedule: per_budget
+    weight: 0.08
+    active: false
+
+  parliament_questions:
+    name: Parliament GST Questions (Lok Sabha / Rajya Sabha)
+    url: https://loksabha.nic.in/questions/questionlist.aspx
+    type: html_scraper
+    signal_type: political_signal
+    update_schedule: per_session
+    weight: 0.08
+    active: false
+    notes: "Questions on specific GST topics from MPs are leading indicators of ministry attention"
+
+  state_election_calendar:
+    name: Election Commission — State Election Schedule
+    url: https://eci.gov.in/elections/upcoming-elections/
+    type: html_scraper
+    signal_type: political_economy
+    update_schedule: monthly
+    weight: 0.12
+    active: false
+    notes: "States with elections in 6 months push for rate reductions at council"
+
+# Prediction model config
+prediction:
+  min_signals_to_predict: 2      # need at least N signals firing to make a prediction
+  min_probability_to_surface: 30  # don't surface predictions below 30%
+  horizon_buckets:
+    - id: next_council
+      label: "Next GST Council meeting"
+      days: 90
+    - id: next_budget
+      label: "Next Union Budget"
+      days: 180
+    - id: medium_term
+      label: "2–3 quarters"
+      days: 270
+    - id: long_term
+      label: "Next FY"
+      days: 365
+
+  # Signal → probability contribution weights
+  # These are tuned from backtest. Adjust as you observe prediction accuracy.
+  signal_weights:
+    repeated_circular_topic: 0.25      # same topic clarified 2+ times → high signal
+    council_deferred_item: 0.30        # item on agenda but deferred → very high signal
+    aar_ruling_frequency: 0.20         # 3+ AARs on same topic in 12 months
+    budget_speech_phrase: 0.35         # specific language in budget speech
+    industry_ask_repeat: 0.15          # same ask in 2+ consecutive memoranda
+    judicial_split: 0.25              # conflicting HC rulings → clarification likely
