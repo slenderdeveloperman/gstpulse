@@ -72,6 +72,33 @@ const GST_SIGNAL_LABEL = {
 function probTier(p) { return p >= 70 ? 'high' : p >= 50 ? 'med' : 'low'; }
 function fmtDelta(d) { return d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${Math.abs(d)}` : '·'; }
 
+// Sunrise/sunset via NOAA solar position equation.
+// Returns { rise, set } as minutes-since-local-midnight.
+function computeSunTimes(lat, lng) {
+  const DEG = Math.PI / 180;
+  const JD = Date.now() / 86400000 + 2440587.5;
+  const n  = Math.round(JD - 2451545.0 - 0.0009 - lng / 360);
+  const J_noon = 2451545.0 + 0.0009 + lng / 360 + n;
+  const M_deg  = (357.5291 + 0.98560028 * (J_noon - 2451545)) % 360;
+  const M      = M_deg * DEG;
+  const C      = 1.9148 * Math.sin(M) + 0.0200 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M);
+  const lam    = ((M_deg + C + 102.9372 + 180) % 360) * DEG;
+  const J_trans = J_noon + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * lam);
+  const sin_d  = Math.sin(lam) * Math.sin(23.4397 * DEG);
+  const cos_d  = Math.cos(Math.asin(sin_d));
+  const cos_ha = (Math.sin(-0.8333 * DEG) - Math.sin(lat * DEG) * sin_d) / (Math.cos(lat * DEG) * cos_d);
+  if (cos_ha < -1) return { rise: 0, set: 1440 };
+  if (cos_ha >  1) return { rise: 720, set: 720 };
+  const ha_deg = Math.acos(cos_ha) / DEG;
+  const toLocal = jd => { const d = new Date((jd - 2440587.5) * 86400000); return d.getHours() * 60 + d.getMinutes(); };
+  return { rise: toLocal(J_trans - ha_deg / 360), set: toLocal(J_trans + ha_deg / 360) };
+}
+function isDayTime(lat = 20, lng = 78) {
+  const { rise, set } = computeSunTimes(lat, lng);
+  const m = new Date().getHours() * 60 + new Date().getMinutes();
+  return m >= rise && m < set;
+}
+
 // client-side rate limit (5 queries / 30 days)
 const RL_KEY = 'gst_rl_count', RL_RESET_KEY = 'gst_rl_reset';
 function getQueryUsage() {
@@ -190,7 +217,7 @@ function ScreenChrome({ T, tweak, breadcrumb, sub, onBack, onViewPricing, childr
       <div style={{ position:'absolute', inset:0, pointerEvents:'none', zIndex:5, opacity:tweak.dark?1:0.4, background:'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px)' }}/>
       <div style={{ background:chromeBg, flexShrink:0, borderBottom:chromeEdge, boxShadow:chromeInsetHL, position:'relative', zIndex:4 }}>
         <header style={{ display:'flex', alignItems:'stretch', height:64 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:14, padding:'0 22px', borderRight:`1px solid ${T.border}` }}>
+          <div onClick={onBack} style={{ display:'flex', alignItems:'center', gap:14, padding:'0 22px', borderRight:`1px solid ${T.border}`, cursor:'pointer' }}>
             <div style={{ width:34, height:34, border:`1.5px solid ${T.accent}`, color:T.accent, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:mono, fontSize:12, fontWeight:600, letterSpacing:'0.04em' }}>GST</div>
             <div style={{ lineHeight:1.15 }}>
               <div style={{ fontFamily:mono, fontSize:16, fontWeight:600, letterSpacing:'0.16em', color:T.text }}>FORESIGHT</div>
@@ -913,13 +940,28 @@ function normalizePrediction(p, i) {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
-  const [dark, setDark] = React.useState(false);
+  const [dark, setDark] = React.useState(() => !isDayTime());
   const [density, setDensity] = React.useState('comfy');
   const [screen, setScreen] = React.useState(null);
   const [activePrediction, setActivePrediction] = React.useState(null);
   const [queryContext, setQueryContext] = React.useState(null);
   const [livePredictions, setLivePredictions] = React.useState(null);
   const [liveData, setLiveData] = React.useState(null);
+  const manualOverride = React.useRef(false);
+
+  // Auto dark/light: init with geolocation, re-check every 60s near sunrise/sunset.
+  React.useEffect(() => {
+    let lat = 20, lng = 78;
+    const apply = () => { if (!manualOverride.current) setDark(!isDayTime(lat, lng)); };
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => { lat = pos.coords.latitude; lng = pos.coords.longitude; apply(); },
+        apply
+      );
+    } else { apply(); }
+    const timer = setInterval(apply, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   React.useEffect(() => {
     fetch('./data/predictions/latest.json?_=' + Date.now())
@@ -941,6 +983,7 @@ function App() {
   const goAlert = (p) => { setActivePrediction(p); setScreen('alert'); };
   const goPrediction = (p) => { setActivePrediction(p); setScreen('prediction'); };
   const goQuery = (ctx) => { setQueryContext(ctx); setScreen('query'); };
+  const toggleDark = () => { manualOverride.current = true; setDark(d => !d); };
 
   if (screen === 'query') return <ScreenQueryResponse tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} response={queryContext?.response} query={queryContext?.query}/>;
   if (screen === 'prediction') return <ScreenPredictionDetail tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} onViewAlert={() => goAlert(activePrediction)} prediction={activePrediction}/>;
@@ -959,7 +1002,7 @@ function App() {
         onViewSource={() => setScreen('source')}
         onViewAlert={() => goAlert(predictions[0])}
         onViewPricing={() => setScreen('pricing')}
-        onToggleDark={() => setDark(d => !d)}
+        onToggleDark={toggleDark}
         onToggleDensity={() => setDensity(d => d==='comfy'?'compact':'comfy')}
       />
     </div>
