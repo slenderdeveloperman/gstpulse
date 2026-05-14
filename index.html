@@ -995,7 +995,7 @@
     <div class="meta-item" id="header-doc-count">— DOCS INDEXED</div>
   </div>
   <div class="header-actions">
-    <a href="https://github.com/YOUR_HANDLE/gst-foresight" class="btn-ghost" target="_blank">↗ GitHub</a>
+    <a href="https://github.com/slenderdeveloperman/gstpulse" class="btn-ghost" target="_blank">↗ GitHub</a>
     <a href="#methodology" class="btn-ghost">Methodology</a>
   </div>
 </header>
@@ -1140,7 +1140,7 @@
       materialise ~65% of the time. Predictions above 70% materialise ~82% of the time.
       All predictions link to the raw signals. No black boxes.
       <br><br>
-      <a href="https://github.com/YOUR_HANDLE/gst-foresight/blob/main/tests/backtest_cases.json"
+      <a href="https://github.com/slenderdeveloperman/gstpulse/blob/main/tests/backtest_cases.json"
          style="color:var(--accent2);font-family:var(--mono);font-size:11px;"
          target="_blank">→ View backtest corpus</a>
     </div>
@@ -1159,8 +1159,8 @@
 <footer>
   <span>GST FORESIGHT — Open source regulatory intelligence for Indian tax professionals</span>
   <div style="display:flex;gap:20px">
-    <a href="https://github.com/YOUR_HANDLE/gst-foresight" target="_blank">GitHub</a>
-    <a href="https://github.com/YOUR_HANDLE/gst-foresight/issues" target="_blank">Contribute</a>
+    <a href="https://github.com/slenderdeveloperman/gstpulse" target="_blank">GitHub</a>
+    <a href="https://github.com/slenderdeveloperman/gstpulse/issues" target="_blank">Contribute</a>
     <span>Not legal advice. Predictions are probabilistic, not certain.</span>
   </div>
 </footer>
@@ -1512,8 +1512,8 @@ const SOURCES = [
 function renderSources() {
   document.getElementById('sources-grid').innerHTML = SOURCES.map(s => `
     <div class="source-item">
-      <div class="source-name">${s.name}</div>
-      <div class="source-type">${s.type}</div>
+      <div class="source-name">${escapeHtml(s.name)}</div>
+      <div class="source-type">${escapeHtml(s.type)}</div>
       <div class="source-status ${s.active ? 'status-active' : 'status-planned'}">
         ${s.active ? '● Active' : '○ Planned'}
       </div>

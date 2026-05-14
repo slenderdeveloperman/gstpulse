@@ -148,6 +148,9 @@ export default {
         headers: {
           'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
+          // Shared secret — prevents direct abuse of the embed endpoint
+          // Set EMBED_SECRET in both this function and the embed function's env vars
+          ...(process.env.EMBED_SECRET ? { 'X-Embed-Secret': process.env.EMBED_SECRET } : {}),
         },
         body: JSON.stringify({ text: cleanQuery }),
       });

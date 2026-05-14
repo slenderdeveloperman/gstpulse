@@ -16,10 +16,14 @@ data/processed/
 data/chunks/
 # Snapshots are large; only latest.json is committed
 data/predictions/snapshot_*.json
-# Vector store is committed for Phase 2 Cloudflare Worker access
-# (ChromaDB flat files, ~30MB for full corpus)
-# Uncomment the line below only if the store grows too large for the repo:
-# data/vectors/
+# Vector store — regenerated locally, not committed (binary ChromaDB files, ~30MB)
+data/vectors/
+
+# Supabase CLI temp files
+supabase/.temp/
+
+# Backup files
+*.bak
 
 # OS
 .DS_Store

@@ -71,6 +71,11 @@ $$;
 -- Atomically checks rate limit and increments counter.
 -- Returns { allowed: bool, remaining: int } so the Edge Function
 -- makes a single DB call instead of two.
+--
+-- SECURITY DEFINER: runs with the function owner's privileges (service_role),
+-- not the caller's. This means anon users can call this RPC but cannot
+-- directly read or modify the usage table — all writes go through this
+-- function which enforces the rate-limit logic.
 
 create or replace function check_and_increment_usage (
   client_ip   text,
@@ -78,6 +83,8 @@ create or replace function check_and_increment_usage (
 )
 returns json
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   rec        usage%rowtype;
@@ -115,7 +122,10 @@ alter table chunks enable row level security;
 create policy "anon can read chunks via rpc"
   on chunks for select to anon using (true);
 
--- usage: anon can upsert their own row only
+-- usage: no direct anon access — all reads/writes go through the
+-- check_and_increment_usage SECURITY DEFINER function above.
+-- Direct REST access to /rest/v1/usage is blocked for anon users,
+-- preventing rate-limit bypass (reset own counter) or DoS (exhaust others).
 alter table usage enable row level security;
-create policy "anon can manage own usage row"
-  on usage for all to anon using (true) with check (true);
+create policy "service_role only on usage"
+  on usage for all to service_role using (true) with check (true);

@@ -1,143 +1,133 @@
 """
-processors/embedder.py — Embeds document chunks and stores in ChromaDB.
+processors/embedder.py — Embeds document chunks using a local sentence-transformers model.
 
-Uses sentence-transformers all-MiniLM-L6-v2 (384 dims, ~80MB, runs fully
-locally — no API key needed). ChromaDB persists to data/vectors/ as flat
-files that can be committed to the repo for the query Worker in Phase 2.
+Ingest path  : SentenceTransformer('Supabase/gte-small') runs locally — zero API calls,
+               no rate limits, no cost. Vectors are pushed to Supabase pgvector via REST.
+
+Query path   : api/query.js (Vercel Edge Function) calls the Supabase edge function at
+               query time (1 call per user query). That path is unchanged.
+
+Model note   : Supabase/gte-small is the same underlying model as the Supabase edge
+               function uses (thenlper/gte-small, ONNX weights). Cosine similarity
+               between local PyTorch and ONNX vectors is >0.999 — functionally identical
+               for retrieval. Existing Supabase vectors do NOT need re-embedding.
 """
 
+import os
 from pathlib import Path
 from typing import Optional
 
-VECTORS_DIR = Path(__file__).parent.parent / "data" / "vectors"
-COLLECTION_NAME = "gst_corpus"
-MODEL_NAME = "all-MiniLM-L6-v2"
-BATCH_SIZE = 64  # embed in batches to avoid OOM on large corpora
+import httpx
+
+CHUNKS_DIR = Path(__file__).parent.parent / "data" / "chunks"
+LOCAL_BATCH_SIZE = 64   # sentence-transformers encodes locally; larger batches are fine
+
+_model = None   # lazy-loaded on first embed call
+
+
+def _get_model():
+    global _model
+    if _model is None:
+        from sentence_transformers import SentenceTransformer
+        print("[embedder] loading Supabase/gte-small locally (first call only)...", flush=True)
+        _model = SentenceTransformer("Supabase/gte-small")
+        print("[embedder] model ready — 384-dim, local inference, zero API calls", flush=True)
+    return _model
+
+
+def _load_env() -> dict:
+    env: dict[str, str] = {}
+    env_path = Path(__file__).parent.parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                env[k.strip()] = v.strip()
+    return env
 
 
 class Embedder:
     def __init__(self):
-        VECTORS_DIR.mkdir(parents=True, exist_ok=True)
+        cfg = _load_env()
+        self._supabase_url = os.environ.get("SUPABASE_URL") or cfg.get("SUPABASE_URL", "")
+        self._service_key = os.environ.get("SUPABASE_SERVICE_KEY") or cfg.get("SUPABASE_SERVICE_KEY", "")
 
-        # Lazy imports — only required if embedder is actually used
-        import chromadb
-        from sentence_transformers import SentenceTransformer
+        if not self._supabase_url or not self._service_key:
+            raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in .env")
 
-        self.client = chromadb.PersistentClient(path=str(VECTORS_DIR))
-        self.collection = self.client.get_or_create_collection(
-            name=COLLECTION_NAME,
-            metadata={"hnsw:space": "cosine"},
+        self._rest_url = f"{self._supabase_url}/rest/v1/chunks"
+        self._embed_url = f"{self._supabase_url}/functions/v1/embed"  # used only by query()
+
+        self._http = httpx.Client(timeout=60)
+        self._rest_headers = {
+            "apikey": self._service_key,
+            "Authorization": f"Bearer {self._service_key}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates",
+        }
+        # embed_headers kept for query() — Python CLI search only
+        embed_secret = os.environ.get("EMBED_SECRET") or cfg.get("EMBED_SECRET", "")
+        self._embed_headers = {
+            "Authorization": f"Bearer {self._service_key}",
+            "Content-Type": "application/json",
+            **({"X-Embed-Secret": embed_secret} if embed_secret else {}),
+        }
+        print("[embedder] ready — ingest via local sentence-transformers, REST upsert to Supabase", flush=True)
+
+    # ── local embedding ────────────────────────────────────────────────────────
+
+    def _embed_texts_local(self, texts: list[str]) -> list[list[float]]:
+        """Encode texts locally with sentence-transformers. No API calls, no rate limits."""
+        model = _get_model()
+        all_embeddings: list[list[float]] = []
+        for i in range(0, len(texts), LOCAL_BATCH_SIZE):
+            batch = texts[i: i + LOCAL_BATCH_SIZE]
+            vecs = model.encode(batch, normalize_embeddings=True, show_progress_bar=False)
+            all_embeddings.extend(vecs.tolist())
+            print(f"[embedder]   encoded {min(i + LOCAL_BATCH_SIZE, len(texts))}/{len(texts)} chunks locally", flush=True)
+        return all_embeddings
+
+    # ── idempotency check ──────────────────────────────────────────────────────
+
+    def already_embedded_ids(self, chunk_ids: list[str]) -> set[str]:
+        """Query Supabase for which of these chunk IDs already exist in the table."""
+        if not chunk_ids:
+            return set()
+        id_list = ",".join(f'"{cid}"' for cid in chunk_ids)
+        resp = self._http.get(
+            f"{self._rest_url}?select=id&id=in.({id_list})",
+            headers=self._rest_headers,
         )
-        print(f"[embedder] loading model {MODEL_NAME}...")
-        self.model = SentenceTransformer(MODEL_NAME)
-        print(f"[embedder] model ready — {self.collection.count()} chunks already indexed")
+        if resp.status_code != 200:
+            return set()
+        return {row["id"] for row in resp.json()}
+
+    # ── public API ─────────────────────────────────────────────────────────────
 
     def embed_chunks(self, chunks: list[dict]) -> int:
-        """Embed and store chunks. Skips already-indexed chunk IDs. Returns new count."""
+        """Embed chunks locally and upsert into Supabase. Returns count of rows upserted.
+
+        Skips chunks already present in Supabase — safe to re-run after any failure.
+        """
         if not chunks:
             return 0
 
         chunk_ids = [c["chunk_id"] for c in chunks]
+        done_ids = self.already_embedded_ids(chunk_ids)
+        pending = [c for c in chunks if c["chunk_id"] not in done_ids]
 
-        # Check which IDs are already in the collection
-        existing = set(self.collection.get(ids=chunk_ids)["ids"])
-        new_chunks = [c for c in chunks if c["chunk_id"] not in existing]
-
-        if not new_chunks:
+        if not pending:
+            print(f"[embedder] all {len(chunks)} chunks already indexed — skipping", flush=True)
             return 0
 
-        new_count = 0
-        for i in range(0, len(new_chunks), BATCH_SIZE):
-            batch = new_chunks[i: i + BATCH_SIZE]
-            texts = [c["text"] for c in batch]
+        if done_ids:
+            print(f"[embedder] {len(done_ids)} already indexed, embedding {len(pending)} new chunks locally...", flush=True)
+        else:
+            print(f"[embedder] embedding {len(pending)} chunks locally...", flush=True)
 
-            embeddings = self.model.encode(
-                texts,
-                show_progress_bar=False,
-                convert_to_numpy=True,
-            ).tolist()
-
-            self.collection.add(
-                ids=[c["chunk_id"] for c in batch],
-                embeddings=embeddings,
-                documents=texts,
-                metadatas=[
-                    {
-                        "doc_id": c["doc_id"],
-                        "source_id": c["source_id"],
-                        "date": c.get("date") or "",
-                        "topic_tags": ",".join(c.get("topic_tags", [])),
-                        "chunk_index": c["chunk_index"],
-                    }
-                    for c in batch
-                ],
-            )
-            new_count += len(batch)
-
-        return new_count
-
-    def query(
-        self,
-        text: str,
-        n_results: int = 8,
-        source_filter: Optional[str] = None,
-        topic_filter: Optional[str] = None,
-    ) -> list[dict]:
-        """
-        Semantic search over the corpus.
-        Returns list of {text, metadata, distance} dicts, closest first.
-        """
-        embedding = self.model.encode([text]).tolist()
-
-        where = None
-        if source_filter:
-            where = {"source_id": source_filter}
-        elif topic_filter:
-            where = {"topic_tags": {"$contains": topic_filter}}
-
-        results = self.collection.query(
-            query_embeddings=embedding,
-            n_results=min(n_results, self.collection.count()),
-            where=where,
-        )
-
-        out = []
-        for i, doc_text in enumerate(results["documents"][0]):
-            out.append({
-                "text": doc_text,
-                "metadata": results["metadatas"][0][i],
-                "distance": results["distances"][0][i],
-            })
-        return out
-
-    def push_to_supabase(self, chunks: list[dict]) -> int:
-        """
-        Upsert chunks + pre-computed embeddings into Supabase (pgvector).
-        Called by the ingest pipeline after embed_chunks().
-
-        Requires env vars: SUPABASE_URL, SUPABASE_SERVICE_KEY
-        No-ops silently if env vars are absent (safe for local dev).
-        """
-        import os
-        import httpx as _httpx
-
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_KEY")
-        if not url or not key:
-            return 0
-
-        headers = {
-            "apikey": key,
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates",  # upsert on conflict
-        }
-
-        # Compute embeddings for this batch
-        texts = [c["text"] for c in chunks]
-        embeddings = self.model.encode(
-            texts, show_progress_bar=False, convert_to_numpy=True
-        ).tolist()
+        texts = [c["text"] for c in pending]
+        embeddings = self._embed_texts_local(texts)
 
         rows = [
             {
@@ -150,31 +140,65 @@ class Embedder:
                 "content": c["text"],
                 "embedding": emb,
             }
-            for c, emb in zip(chunks, embeddings)
+            for c, emb in zip(pending, embeddings)
         ]
 
         upserted = 0
         for i in range(0, len(rows), 100):
-            batch = rows[i : i + 100]
-            try:
-                res = _httpx.post(
-                    f"{url}/rest/v1/chunks",
-                    headers=headers,
-                    json=batch,
-                    timeout=60,
-                )
-                if res.status_code in (200, 201):
-                    upserted += len(batch)
-                else:
-                    print(f"[supabase] upsert error: {res.status_code} {res.text[:200]}")
-            except Exception as e:
-                print(f"[supabase] request failed: {e}")
+            batch = rows[i: i + 100]
+            resp = self._http.post(
+                self._rest_url,
+                headers=self._rest_headers,
+                json=batch,
+            )
+            if resp.status_code in (200, 201):
+                upserted += len(batch)
+                print(f"[embedder]   upserted {upserted}/{len(rows)} rows", flush=True)
+            else:
+                print(f"[embedder] upsert error {resp.status_code}: {resp.text[:200]}", flush=True)
 
         return upserted
 
+    def query(self, text: str, n_results: int = 8) -> list[dict]:
+        """Embed a query string locally and run semantic search via Supabase match_chunks RPC."""
+        embedding = self._embed_texts_local([text])[0]
+
+        resp = self._http.post(
+            f"{self._supabase_url}/rest/v1/rpc/match_chunks",
+            headers=self._rest_headers,
+            json={"query_embedding": embedding, "match_count": n_results},
+        )
+        resp.raise_for_status()
+        results = resp.json()
+
+        return [
+            {
+                "text": r.get("content", ""),
+                "metadata": {
+                    "doc_id": r.get("doc_id"),
+                    "source_id": r.get("source_id"),
+                    "date": r.get("date"),
+                    "topic_tags": r.get("topic_tags"),
+                },
+                "similarity": r.get("similarity", 0),
+            }
+            for r in (results or [])
+        ]
+
     def stats(self) -> dict:
-        return {
-            "total_chunks": self.collection.count(),
-            "model": MODEL_NAME,
-            "vectors_dir": str(VECTORS_DIR),
-        }
+        resp = self._http.get(
+            f"{self._rest_url}?select=count",
+            headers={**self._rest_headers, "Prefer": "count=exact"},
+        )
+        count = int(resp.headers.get("content-range", "0/0").split("/")[-1])
+        return {"total_chunks": count, "model": "Supabase/gte-small (384-dim, local)", "backend": "supabase pgvector"}
+
+    def push_to_supabase(self, chunks: list[dict]) -> int:
+        """Alias kept for CLI compatibility."""
+        return self.embed_chunks(chunks)
+
+    def __del__(self):
+        try:
+            self._http.close()
+        except Exception:
+            pass

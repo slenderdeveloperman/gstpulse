@@ -1,13 +1,16 @@
 /**
- * api/embed.js — lightweight embedding endpoint (Vercel Edge Function)
+ * api/embed.js — internal embedding endpoint (Supabase Edge Function)
  *
  * Accepts { text: string }, returns { embedding: number[] } using
  * Transformers.js running in the V8 edge runtime via WASM.
  * Uses all-MiniLM-L6-v2 — same model as the Python ingest pipeline.
  *
- * Called internally by api/query.js. Not exposed publicly.
+ * INTERNAL ONLY — called by api/query.js, not exposed to end users.
+ * Protected by a shared secret (EMBED_SECRET env var) so that knowing
+ * the Supabase anon key alone is not sufficient to call this endpoint.
  *
- * Env vars: none (model loaded from CDN on first call, cached by Vercel)
+ * Env vars:
+ *   EMBED_SECRET — shared secret set in both this function and query.js
  */
 
 import { pipeline } from '@xenova/transformers';
@@ -24,12 +27,19 @@ async function getExtractor() {
   return extractor;
 }
 
+// Restrict to calls from query.js (same Vercel deployment origin)
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'http://localhost:3000',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Embed-Secret',
   'Content-Type': 'application/json',
 };
+
+function err(msg, status) {
+  return new Response(JSON.stringify({ error: msg }), { status, headers: CORS });
+}
 
 export default {
   async fetch(request) {
@@ -37,17 +47,23 @@ export default {
       return new Response(null, { status: 204, headers: CORS });
     }
     if (request.method !== 'POST') {
-      return new Response(JSON.stringify({ error: 'method_not_allowed' }), { status: 405, headers: CORS });
+      return err('method_not_allowed', 405);
+    }
+
+    // Shared-secret gate — prevents abuse by callers who only know the anon key
+    const secret = process.env.EMBED_SECRET;
+    if (secret && request.headers.get('X-Embed-Secret') !== secret) {
+      return err('unauthorized', 401);
     }
 
     let text;
     try {
       ({ text } = await request.json());
     } catch {
-      return new Response(JSON.stringify({ error: 'invalid_json' }), { status: 400, headers: CORS });
+      return err('invalid_json', 400);
     }
     if (!text || typeof text !== 'string') {
-      return new Response(JSON.stringify({ error: 'missing_text' }), { status: 400, headers: CORS });
+      return err('missing_text', 400);
     }
 
     try {
@@ -57,7 +73,7 @@ export default {
       return new Response(JSON.stringify({ embedding }), { status: 200, headers: CORS });
     } catch (e) {
       console.error('[embed] error:', e);
-      return new Response(JSON.stringify({ error: 'embed_failed' }), { status: 502, headers: CORS });
+      return err('embed_failed', 502);
     }
   },
 };

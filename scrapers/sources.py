@@ -13,118 +13,189 @@ from scrapers.base import BaseScraper, Document
 
 
 class CBICCircularScraper(BaseScraper):
+    """
+    Scrapes CBIC GST circulars from cbic-gst.gov.in (static site).
+
+    cbic.gov.in/htdocs-cbic/gst/circulars-cgst-english.htm is an Angular SPA
+    that blocks JS bundle access and returns the shell HTML for every route —
+    zero DOM content is available server-side. cbic-gst.gov.in is the legacy
+    static mirror that still exposes PDF links directly in HTML.
+
+    Strategy:
+    1. Homepage — yields the ~6 most-recent circulars with direct PDF hrefs
+    2. Communication page — additional taxpayer circulars and trade notices
+    Both pages use relative PDF hrefs; we resolve and extract full text.
+    """
     source_id = "cbic_circulars"
-    BASE_URL = "https://cbic.gov.in/htdocs-cbic/gst/circulars-cgst-english.htm"
+    BASE_URL = "https://cbic-gst.gov.in/"
+    COMM_URL = "https://cbic-gst.gov.in/communication-tax-payers.html"
 
     def scrape(self) -> list[Document]:
         docs = []
-        try:
-            soup = self.fetch_html(self.BASE_URL)
-            # CBIC page has a table of circulars with circular number, date, subject, PDF link
-            for row in soup.select("table tr"):
-                cells = row.find_all("td")
-                if len(cells) < 3:
+        seen_urls: set[str] = set()
+
+        for page_url in (self.BASE_URL, self.COMM_URL):
+            try:
+                soup = self.fetch_html(page_url)
+            except Exception as e:
+                print(f"[cbic_circulars] fetch error {page_url}: {e}")
+                continue
+
+            for link in soup.find_all("a", href=True):
+                href = link["href"]
+                text = link.get_text(strip=True)
+
+                # Only follow PDF links with "circular" in path or text
+                is_circular = (
+                    ".pdf" in href.lower()
+                    and ("circular" in href.lower() or "circular" in text.lower())
+                )
+                if not is_circular:
                     continue
 
-                circular_no = cells[0].get_text(strip=True)
-                date_text = cells[1].get_text(strip=True) if len(cells) > 1 else ""
-                subject = cells[2].get_text(strip=True) if len(cells) > 2 else ""
-                link_tag = row.find("a", href=True)
-                url = link_tag["href"] if link_tag else self.BASE_URL
-
-                if not circular_no or not subject:
+                full_url = href if href.startswith("http") else f"https://cbic-gst.gov.in/{href.lstrip('/')}"
+                if full_url in seen_urls:
                     continue
+                seen_urls.add(full_url)
 
-                # Normalise circular number to use as doc_id
-                doc_id = re.sub(r"[^a-z0-9]", "_", circular_no.lower())
+                # Extract circular number from URL pattern: Circular-No-250-2025.pdf
+                # or circular-239-33-2024-GST.pdf
+                num_match = re.search(r"[Cc]ircular[^/]*?[Nn]o[^/]*?(\d+)", href)
+                if not num_match:
+                    num_match = re.search(r"[Cc]ircular[^/]*?-(\d{2,})-", href)
+                circular_no = num_match.group(1) if num_match else Document.content_hash(href)
 
-                date = self._parse_date(date_text)
+                doc_id = f"cbic_circ_{re.sub(r'[^a-z0-9]', '_', href.lower()[-40:])}"
 
-                full_url = url if url.startswith("http") else f"https://cbic.gov.in/{url.lstrip('/')}"
-                # Attempt full-text extraction from PDF; fall back to subject line
-                full_text = None
-                if full_url.lower().endswith(".pdf"):
-                    full_text = self.fetch_pdf_text(full_url)
-                else:
-                    pdf_url = self._find_pdf_url(full_url)
-                    if pdf_url:
-                        full_text = self.fetch_pdf_text(pdf_url)
+                full_text = self.fetch_pdf_text(full_url)
 
                 docs.append(Document(
                     source_id=self.source_id,
-                    doc_id=f"cbic_circ_{doc_id}",
-                    title=f"Circular {circular_no}: {subject}",
+                    doc_id=doc_id,
+                    title=f"CBIC Circular {circular_no}: {text[:120]}" if text else f"CBIC Circular {circular_no}",
                     url=full_url,
-                    date=date,
-                    content=full_text or subject,
+                    date=self._parse_date_from_url(href),
+                    content=full_text or text or circular_no,
                     metadata={
                         "circular_no": circular_no,
-                        "raw_date": date_text,
-                        "subject": subject,
+                        "source_page": page_url,
                         "full_text_extracted": full_text is not None,
                     },
                 ))
-        except Exception as e:
-            print(f"[cbic_circulars] scrape error: {e}")
+                print(f"[cbic_circulars] circular {circular_no}: {'full text' if full_text else 'title only'}")
+
+        print(f"[cbic_circulars] total: {len(docs)} circulars")
         return docs
 
-    def _parse_date(self, text: str) -> datetime | None:
-        for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%B %d, %Y", "%d-%m-%Y"):
+    def _parse_date_from_url(self, href: str) -> datetime | None:
+        year_match = re.search(r"20(\d{2})", href)
+        if year_match:
             try:
-                return datetime.strptime(text.strip(), fmt)
+                return datetime(int("20" + year_match.group(1)), 1, 1)
             except ValueError:
-                continue
+                pass
         return None
 
 
 class GSTCouncilScraper(BaseScraper):
     """
-    Scrapes GST Council meeting press releases and agenda summaries.
-    The most valuable signal: items listed as 'deferred' in one meeting
-    almost always appear as decisions in the next 1-2 meetings.
+    Scrapes GST Council meeting minutes from gstcouncil.gov.in.
+
+    The page has a single table: each row is one meeting with columns
+    Meeting Name | Date | Venue | Agenda (PDF) | Minutes (PDF).
+    Minutes PDFs are linked directly — no sub-page navigation needed.
+
+    Minutes PDFs run 15–30 MB each; we pass max_bytes=50MB to fetch_pdf_text
+    so large documents aren't silently dropped by the 10 MB default cap.
+
+    Key signal: deferral language in minutes ("defer", "kept in abeyance",
+    "further deliberation") — items deferred at one meeting resurface at the
+    next 1–2 meetings with very high probability.
     """
     source_id = "gst_council_minutes"
     BASE_URL = "https://gstcouncil.gov.in/gst-council-meeting"
+    DOMAIN   = "https://gstcouncil.gov.in"
+    # Council minutes are large official documents — raise the cap to 50 MB
+    MAX_PDF_BYTES = 50 * 1024 * 1024
 
     def scrape(self) -> list[Document]:
         docs = []
         try:
             soup = self.fetch_html(self.BASE_URL)
-            # Council site lists meetings with press release links
-            for link in soup.find_all("a", href=True):
-                href = link["href"]
-                text = link.get_text(strip=True)
 
-                # Filter for meeting-related links
-                if not any(k in text.lower() or k in href.lower() 
-                          for k in ["meeting", "council", "press", "agenda"]):
+            # The page has one <table>; each <tr> (except the header) is a meeting
+            table = soup.find("table")
+            if not table:
+                print("[gst_council] ERROR — could not find meetings table on page", flush=True)
+                return docs
+
+            for row in table.find_all("tr"):
+                cells = row.find_all("td")
+                if len(cells) < 5:
+                    continue  # header row or malformed
+
+                meeting_name = cells[0].get_text(strip=True)
+                date_text    = cells[1].get_text(strip=True)
+                venue        = cells[2].get_text(strip=True)
+
+                # Meeting number from name e.g. "55th GST Council Meeting" → 55
+                num_match = re.search(r"(\d+)", meeting_name)
+                meeting_no = num_match.group(1) if num_match else Document.content_hash(meeting_name)
+
+                # Column 5 (index 4) is the Minutes PDF link
+                minutes_link = cells[4].find("a", href=True)
+                if not minutes_link:
+                    print(f"[gst_council] meeting {meeting_no}: no minutes link found", flush=True)
                     continue
 
-                # Extract meeting number if present
-                meeting_match = re.search(r"(\d+)(st|nd|rd|th)", text, re.IGNORECASE)
-                meeting_no = meeting_match.group(1) if meeting_match else "unknown"
+                minutes_href = minutes_link["href"]
+                minutes_url  = (
+                    minutes_href if minutes_href.startswith("http")
+                    else f"{self.DOMAIN}{minutes_href}"
+                )
 
-                doc_id = f"gst_council_{meeting_no}_{Document.content_hash(href)}"
-                full_url = href if href.startswith("http") else f"https://gstcouncil.gov.in/{href.lstrip('/')}"
+                doc_id = f"gst_council_{meeting_no}"
+                if self.doc_cached(doc_id):
+                    print(f"[gst_council] meeting {meeting_no}: cached, skipping", flush=True)
+                    continue
 
-                # Council meeting pages contain press release + minutes PDF links
-                full_text = self._find_pdf_url(full_url)
-                full_text = self.fetch_pdf_text(full_text) if full_text else None
+                # Parse date e.g. "21-Dec-2024"
+                date = None
+                for fmt in ("%d-%b-%Y", "%d-%B-%Y", "%d/%m/%Y", "%d-%m-%Y"):
+                    try:
+                        from datetime import datetime
+                        date = datetime.strptime(date_text, fmt)
+                        break
+                    except ValueError:
+                        continue
+
+                print(f"[gst_council] meeting {meeting_no} ({date_text}, {venue}): downloading minutes...", flush=True)
+                full_text = self.fetch_pdf_text(minutes_url, max_bytes=self.MAX_PDF_BYTES)
+
+                if full_text:
+                    print(f"[gst_council] meeting {meeting_no}: {len(full_text):,} chars extracted", flush=True)
+                else:
+                    print(f"[gst_council] meeting {meeting_no}: text extraction failed (likely scanned PDF)", flush=True)
 
                 docs.append(Document(
                     source_id=self.source_id,
                     doc_id=doc_id,
-                    title=text or f"GST Council Meeting {meeting_no}",
-                    url=full_url,
-                    date=None,
-                    content=full_text or text,
+                    title=f"GST Council Meeting {meeting_no} Minutes ({date_text}, {venue})",
+                    url=minutes_url,
+                    date=date,
+                    content=full_text or meeting_name,
                     metadata={
                         "meeting_no": meeting_no,
+                        "date_text": date_text,
+                        "venue": venue,
                         "full_text_extracted": full_text is not None,
                     },
                 ))
+
         except Exception as e:
-            print(f"[gst_council] scrape error: {e}")
+            print(f"[gst_council] scrape error: {e}", flush=True)
+
+        print(f"[gst_council] total: {len(docs)} meetings scraped", flush=True)
         return docs
 
 

@@ -56,22 +56,43 @@ class Chunker:
                 "char_start": start,
             })
 
-            start = start + len(chunk_text) - self.overlap
+            advance = len(chunk_text) - self.overlap
+            if advance <= 0:
+                # Remaining text is shorter than overlap — we're at the end
+                break
+            start = start + advance
             idx += 1
 
         return chunks
 
     def chunk_and_save(self, processed_path: Path) -> list[dict]:
         """Read a processed doc, chunk it, save chunks. Returns chunk list."""
+        name = processed_path.name
         try:
-            doc = json.loads(processed_path.read_text())
+            print(f"[chunker] reading {name}...", flush=True)
+            raw = processed_path.read_text()
+            print(f"[chunker] parsing JSON ({len(raw):,} bytes)...", flush=True)
+            doc = json.loads(raw)
+
+            content_len = len((doc.get("content") or ""))
+            print(f"[chunker] chunking {name} ({content_len:,} chars)...", flush=True)
             chunks = self.chunk(doc)
-            if chunks:
-                out_path = CHUNKS_DIR / processed_path.name
-                out_path.write_text(json.dumps(chunks, indent=2, default=str))
+
+            if not chunks:
+                print(f"[chunker] SKIP {name} — no content", flush=True)
+                return []
+
+            out_path = CHUNKS_DIR / name
+            print(f"[chunker] writing {len(chunks)} chunks → {out_path.name}...", flush=True)
+            out_path.write_text(json.dumps(chunks, indent=2, default=str))
+            print(f"[chunker] done {name} → {len(chunks)} chunks", flush=True)
             return chunks
+
+        except json.JSONDecodeError as e:
+            print(f"[chunker] JSON error on {name}: {e}", flush=True)
+            return []
         except Exception as e:
-            print(f"[chunker] error on {processed_path.name}: {e}")
+            print(f"[chunker] ERROR on {name}: {type(e).__name__}: {e}", flush=True)
             return []
 
     def chunks_exist(self, processed_path: Path) -> bool:

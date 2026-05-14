@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def cmd_ingest(args):
+    import gc
     from scrapers.sources import (
         CBICCircularScraper,
         GSTCouncilScraper,
@@ -28,9 +29,13 @@ def cmd_ingest(args):
         PIBFinanceScraper,
         ParliamentaryQuestionsScraper,
     )
+    from scrapers.base import release_docling, disable_ocr
     from processors.tagger import TopicTagger
     from processors.chunker import Chunker
     from processors.embedder import Embedder
+
+    if getattr(args, "no_ocr", False):
+        disable_ocr()
 
     SCRAPERS = {
         # Original signal sources
@@ -47,7 +52,6 @@ def cmd_ingest(args):
 
     tagger = TopicTagger()
     chunker = Chunker()
-    embedder = Embedder()
     to_run = list(SCRAPERS.keys()) if args.all else [args.source]
 
     for source_id in to_run:
@@ -60,6 +64,10 @@ def cmd_ingest(args):
         docs = scraper.scrape()
         new_count = scraper.save(docs)
         print(f"[ingest] {source_id}: {len(docs)} found, {new_count} new")
+        del docs, scraper
+        # Release Docling models between sources — they hold GB-scale ML weights
+        release_docling()
+        gc.collect()
 
         # Tag new documents
         raw_dir = Path("data/raw") / source_id
@@ -72,22 +80,36 @@ def cmd_ingest(args):
                     tagged += 1
         print(f"[ingest] {source_id}: tagged {tagged} new documents")
 
-        # Chunk + embed new processed documents
+        # Chunk (always) + embed (skipped when --skip-embed is set).
+        # Embedder is created inside the loop and released after each source
+        # so the ML model doesn't accumulate across all 8 sources.
         chunked = 0
         embedded = 0
-        pushed = 0
-        for path in Path("data/processed").glob("*.json"):
-            if chunker.chunks_exist(path):
-                continue
+        paths_to_chunk = [
+            p for p in Path("data/processed").glob("*.json")
+            if not chunker.chunks_exist(p)
+        ]
+        for path in paths_to_chunk:
             chunks = chunker.chunk_and_save(path)
             if chunks:
                 chunked += 1
-                new_vectors = embedder.embed_chunks(chunks)
-                embedded += new_vectors
-                pushed += embedder.push_to_supabase(chunks)
+
         if chunked:
-            supabase_note = f", {pushed} pushed to Supabase" if pushed else ""
-            print(f"[ingest] {source_id}: chunked {chunked} docs → {embedded} new vectors{supabase_note}")
+            print(f"[ingest] {source_id}: chunked {chunked} docs")
+
+        if not getattr(args, "skip_embed", False) and paths_to_chunk:
+            embedder = Embedder()
+            for path in paths_to_chunk:
+                chunk_path = Path("data/chunks") / path.name
+                if not chunk_path.exists():
+                    continue
+                chunks = json.loads(chunk_path.read_text())
+                if chunks:
+                    embedded += embedder.embed_chunks(chunks)
+            del embedder
+            gc.collect()
+            if embedded:
+                print(f"[ingest] {source_id}: {embedded} new vectors indexed to Supabase")
 
 
 def cmd_predict(args):
@@ -151,6 +173,110 @@ def cmd_status(args):
         print(f"\n  predictions:          none yet — run `python -m gst_foresight predict`")
 
 
+def cmd_reextract(args):
+    """Re-fetch PDFs for raw docs where full_text_extracted=False.
+
+    Overwrites the raw doc with full text, then deletes the corresponding
+    processed/ and chunks/ files so the tagger + chunker re-process them.
+    """
+    import gc
+    from scrapers.base import BaseScraper, Document
+
+    # Minimal scraper just for fetch_pdf_text access
+    class _Fetcher(BaseScraper):
+        source_id = "_reextract"
+        def scrape(self): return []
+
+    raw_dir = Path("data/raw")
+    processed_dir = Path("data/processed")
+    chunks_dir = Path("data/chunks")
+
+    if not raw_dir.exists():
+        print("data/raw not found — run ingest first.")
+        return
+
+    fetcher = _Fetcher()
+    updated = skipped = failed = 0
+
+    for source_dir in sorted(raw_dir.iterdir()):
+        if not source_dir.is_dir():
+            continue
+        for raw_path in sorted(source_dir.glob("*.json")):
+            doc = json.loads(raw_path.read_text())
+            if doc.get("metadata", {}).get("full_text_extracted"):
+                skipped += 1
+                continue
+            url = doc.get("url", "")
+            if not url:
+                skipped += 1
+                continue
+
+            print(f"[reextract] {raw_path.name} — fetching {url[:70]}...")
+            try:
+                if url.lower().endswith(".pdf"):
+                    text = fetcher.fetch_pdf_text(url)
+                else:
+                    # HTML page — extract visible text
+                    soup = fetcher.fetch_html(url)
+                    # Remove script/style noise
+                    for tag in soup(["script", "style", "nav", "header", "footer"]):
+                        tag.decompose()
+                    text = soup.get_text(separator="\n", strip=True) or None
+            except Exception as e:
+                print(f"  ERROR: {e}")
+                failed += 1
+                continue
+
+            if not text:
+                print(f"  SKIP — no text extracted")
+                failed += 1
+                continue
+
+            doc["content"] = text
+            doc["metadata"]["full_text_extracted"] = True
+            raw_path.write_text(json.dumps(doc, indent=2, default=str))
+
+            # Cascade-delete processed/chunks so the pipeline re-generates them
+            for stale_dir in (processed_dir, chunks_dir):
+                stale = stale_dir / raw_path.name
+                if stale.exists():
+                    stale.unlink()
+
+            print(f"  OK — {len(text):,} chars extracted")
+            updated += 1
+
+    fetcher.client.close()
+    gc.collect()
+    print(f"\n[reextract] done — {updated} updated, {skipped} skipped (already extracted), {failed} failed")
+
+
+def cmd_embed(_args):
+    """Embed all un-indexed chunks. Run separately when memory allows."""
+    import gc, json as _json
+    from processors.embedder import Embedder
+
+    chunks_dir = Path("data/chunks")
+    if not chunks_dir.exists():
+        print("No chunks found — run ingest first.")
+        return
+
+    embedder = Embedder()
+    total_embedded = 0
+    total_pushed = 0
+
+    for chunk_path in sorted(chunks_dir.glob("*.json")):
+        chunks = _json.loads(chunk_path.read_text())
+        if not chunks:
+            continue
+        new_vecs = embedder.embed_chunks(chunks)
+        if new_vecs:
+            total_embedded += new_vecs
+
+    del embedder
+    gc.collect()
+    print(f"[embed] done — {total_embedded} new vectors indexed to Supabase")
+
+
 def main():
     parser = argparse.ArgumentParser(prog="gst_foresight")
     sub = parser.add_subparsers(dest="command")
@@ -158,7 +284,17 @@ def main():
     ingest_parser = sub.add_parser("ingest", help="Scrape and process data sources")
     ingest_parser.add_argument("--all", action="store_true", help="Run all active scrapers")
     ingest_parser.add_argument("--source", help="Run a specific source scraper")
+    ingest_parser.add_argument(
+        "--skip-embed", action="store_true",
+        help="Scrape and chunk only — skip embedding (use on memory-constrained machines)"
+    )
+    ingest_parser.add_argument(
+        "--no-ocr", action="store_true",
+        help="Skip Docling/RapidOCR entirely — avoids loading large ML models (use when memory is constrained)"
+    )
 
+    sub.add_parser("embed", help="Embed all chunked docs into ChromaDB (run separately if ingest --skip-embed was used)")
+    sub.add_parser("reextract", help="Re-fetch PDFs for raw docs where full_text_extracted=False")
     sub.add_parser("predict", help="Generate predictions from processed data")
     sub.add_parser("status", help="Show data and prediction status")
 
@@ -166,6 +302,10 @@ def main():
 
     if args.command == "ingest":
         cmd_ingest(args)
+    elif args.command == "embed":
+        cmd_embed(args)
+    elif args.command == "reextract":
+        cmd_reextract(args)
     elif args.command == "predict":
         cmd_predict(args)
     elif args.command == "status":

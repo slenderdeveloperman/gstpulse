@@ -1,30 +1,364 @@
 {
-  "generated_at": "2026-05-08T00:00:00",
-  "doc_count": 0,
-  "prediction_count": 0,
-  "note": "Predictions will appear here after running: python -m gst_foresight ingest --all && python -m gst_foresight predict",
-  "predictions": [],
-  "example_prediction": {
-    "topic_id": "ims_itc_flow",
-    "topic_label": "IMS / ITC Flow Mechanism",
-    "probability": 72.0,
-    "horizon_label": "Next GST Council meeting",
-    "horizon_days": 90,
-    "signal_count": 2,
-    "signals": [
-      {
-        "type": "repeated_circular_topic",
-        "strength": 0.7,
-        "description": "3 CBIC circulars on this topic — ongoing ambiguity suggests further clarification likely",
-        "source_docs": ["cbic_circ_abc", "cbic_circ_def"]
-      },
-      {
-        "type": "council_deferred_item",
-        "strength": 0.85,
-        "description": "Item deferred in 1 GST Council meeting(s) — high likelihood of resolution in next meeting",
-        "source_docs": ["gst_council_52"]
-      }
-    ],
-    "generated_at": "2026-05-08T00:00:00"
-  }
+  "generated_at": "2026-05-14T13:11:52.851759",
+  "doc_count": 87,
+  "prediction_count": 10,
+  "predictions": [
+    {
+      "topic_id": "rcm_coverage",
+      "topic_label": "Reverse Charge Mechanism",
+      "probability": 76.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 2,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.85,
+          "description": "Item deferred in 21 GST Council meeting(s) \u2014 high likelihood of resolution in next meeting",
+          "source_docs": [
+            "gst_council_42",
+            "gst_council_55",
+            "gst_council_18",
+            "gst_council_34",
+            "gst_council_22"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.7,
+          "description": "Budget speech (2009) contained action language on this topic",
+          "source_docs": [
+            "budget_speech_2009"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-14T13:11:52.563065"
+    },
+    {
+      "topic_id": "return_format",
+      "topic_label": "Return Format / Process Changes",
+      "probability": 76.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 2,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.85,
+          "description": "Item deferred in 30 GST Council meeting(s) \u2014 high likelihood of resolution in next meeting",
+          "source_docs": [
+            "gst_council_23",
+            "gst_council_35",
+            "gst_council_39",
+            "gst_council_42",
+            "gst_council_15"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.7,
+          "description": "Budget speech (2019, 2023, 2003) contained action language on this topic",
+          "source_docs": [
+            "budget_speech_2019",
+            "budget_speech_2023",
+            "budget_speech_2003"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-14T13:11:52.635925"
+    },
+    {
+      "topic_id": "e_invoicing",
+      "topic_label": "E-Invoicing Expansion",
+      "probability": 76.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 2,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.85,
+          "description": "Item deferred in 24 GST Council meeting(s) \u2014 high likelihood of resolution in next meeting",
+          "source_docs": [
+            "gst_council_23",
+            "gst_council_35",
+            "gst_council_39",
+            "gst_council_42",
+            "gst_council_15"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.7,
+          "description": "Budget speech (2020) contained action language on this topic",
+          "source_docs": [
+            "budget_speech_2020"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-14T13:11:52.671052"
+    },
+    {
+      "topic_id": "classification_disputes",
+      "topic_label": "Classification Clarifications",
+      "probability": 76.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 2,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.85,
+          "description": "Item deferred in 29 GST Council meeting(s) \u2014 high likelihood of resolution in next meeting",
+          "source_docs": [
+            "gst_council_23",
+            "gst_council_19",
+            "gst_council_15",
+            "gst_council_03",
+            "gst_council_55"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.7,
+          "description": "Budget speech (2017, 2000, 2016, 2020, 2011, 2007, 2005, 2025, 2012, 2004, 2019, 2023, 2002) contained action language on this topic",
+          "source_docs": [
+            "budget_speech_2017",
+            "budget_speech_2000",
+            "budget_speech_2016",
+            "budget_speech_2020",
+            "budget_speech_2011"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-14T13:11:52.694107"
+    },
+    {
+      "topic_id": "valuation",
+      "topic_label": "Valuation Rules",
+      "probability": 76.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 2,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.85,
+          "description": "Item deferred in 22 GST Council meeting(s) \u2014 high likelihood of resolution in next meeting",
+          "source_docs": [
+            "gst_council_35",
+            "gst_council_55",
+            "gst_council_14",
+            "gst_council_43",
+            "gst_council_38"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.7,
+          "description": "Budget speech (2001, 2000, 2007, 2004, 2015, 2022, 2018) contained action language on this topic",
+          "source_docs": [
+            "budget_speech_2001",
+            "budget_speech_2000",
+            "budget_speech_2007",
+            "budget_speech_2004",
+            "budget_speech_2015"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-14T13:11:52.723944"
+    },
+    {
+      "topic_id": "place_of_supply",
+      "topic_label": "Place of Supply",
+      "probability": 76.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 2,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.85,
+          "description": "Item deferred in 20 GST Council meeting(s) \u2014 high likelihood of resolution in next meeting",
+          "source_docs": [
+            "gst_council_23",
+            "gst_council_55",
+            "gst_council_22",
+            "gst_council_05",
+            "gst_council_25"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.7,
+          "description": "Budget speech (2025, 2012, 2019, 2022) contained action language on this topic",
+          "source_docs": [
+            "budget_speech_2025",
+            "budget_speech_2012",
+            "budget_speech_2019",
+            "budget_speech_2022"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-14T13:11:52.746613"
+    },
+    {
+      "topic_id": "msme_composition",
+      "topic_label": "MSME / Composition Scheme",
+      "probability": 76.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 2,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.85,
+          "description": "Item deferred in 37 GST Council meeting(s) \u2014 high likelihood of resolution in next meeting",
+          "source_docs": [
+            "gst_council_23",
+            "gst_council_35",
+            "gst_council_19",
+            "gst_council_39",
+            "gst_council_42"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.7,
+          "description": "Budget speech (2021, 2001, 2016, 2020, 2013, 2009, 2025, 2024, 2012, 2019, 2023, 2003, 2015, 2014, 2022, 2018) contained action language on this topic",
+          "source_docs": [
+            "budget_speech_2021",
+            "budget_speech_2001",
+            "budget_speech_2016",
+            "budget_speech_2020",
+            "budget_speech_2013"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-14T13:11:52.771004"
+    },
+    {
+      "topic_id": "real_estate",
+      "topic_label": "Real Estate / Construction",
+      "probability": 76.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 2,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.85,
+          "description": "Item deferred in 35 GST Council meeting(s) \u2014 high likelihood of resolution in next meeting",
+          "source_docs": [
+            "gst_council_23",
+            "gst_council_35",
+            "gst_council_19",
+            "gst_council_15",
+            "gst_council_03"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.7,
+          "description": "Budget speech (2021, 2017, 2001, 2000, 2016, 2020, 2011, 2007, 2006, 2010, 2005, 2013, 2009, 2025, 2024, 2008, 2012, 2019, 2003, 2015, 2014, 2002, 2022, 2018) contained action language on this topic",
+          "source_docs": [
+            "budget_speech_2021",
+            "budget_speech_2017",
+            "budget_speech_2001",
+            "budget_speech_2000",
+            "budget_speech_2016"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-14T13:11:52.808085"
+    },
+    {
+      "topic_id": "itc_eligibility",
+      "topic_label": "ITC Eligibility Rules",
+      "probability": 63.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 3,
+      "signals": [
+        {
+          "type": "repeated_circular_topic",
+          "strength": 0.3,
+          "description": "2 CBIC circulars on this topic \u2014 ongoing ambiguity suggests further clarification likely",
+          "source_docs": [
+            "cbic_circ_r_services_co_insurance_re_insurance_pdf",
+            "cbic_circ_pdf_circular_no_249_2025_pdf"
+          ]
+        },
+        {
+          "type": "council_deferred_item",
+          "strength": 0.85,
+          "description": "Item deferred in 47 GST Council meeting(s) \u2014 high likelihood of resolution in next meeting",
+          "source_docs": [
+            "gst_council_23",
+            "gst_council_35",
+            "gst_council_19",
+            "gst_council_39",
+            "gst_council_42"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.7,
+          "description": "Budget speech (2021, 2017, 2001, 2000, 2016, 2020, 2010, 2005, 2013, 2009, 2025, 2024, 2012, 2004, 2019, 2003, 2015, 2014, 2022, 2018) contained action language on this topic",
+          "source_docs": [
+            "budget_speech_2021",
+            "budget_speech_2017",
+            "budget_speech_2001",
+            "budget_speech_2000",
+            "budget_speech_2016"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-14T13:11:52.511934"
+    },
+    {
+      "topic_id": "rate_rationalisation",
+      "topic_label": "Rate Changes",
+      "probability": 63.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 3,
+      "signals": [
+        {
+          "type": "repeated_circular_topic",
+          "strength": 0.3,
+          "description": "2 CBIC circulars on this topic \u2014 ongoing ambiguity suggests further clarification likely",
+          "source_docs": [
+            "cbic_circ_pdf_gst_circular_pdf",
+            "cbic_circ_pdf_circular_no_249_2025_pdf"
+          ]
+        },
+        {
+          "type": "council_deferred_item",
+          "strength": 0.85,
+          "description": "Item deferred in 49 GST Council meeting(s) \u2014 high likelihood of resolution in next meeting",
+          "source_docs": [
+            "gst_council_23",
+            "gst_council_35",
+            "gst_council_19",
+            "gst_council_39",
+            "gst_council_42"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.7,
+          "description": "Budget speech (2021, 2017, 2001, 2000, 2016, 2020, 2011, 2007, 2006, 2010, 2005, 2013, 2009, 2025, 2024, 2008, 2012, 2004, 2019, 2023, 2003, 2015, 2014, 2002, 2022, 2018) contained action language on this topic",
+          "source_docs": [
+            "budget_speech_2021",
+            "budget_speech_2017",
+            "budget_speech_2001",
+            "budget_speech_2000",
+            "budget_speech_2016"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-14T13:11:52.580732"
+    }
+  ]
 }
