@@ -1,35 +1,6 @@
-/**
- * api/query.js — GST Foresight query endpoint (Vercel Edge Function)
- *
- * Flow:
- *   POST /api/query { query: string }
- *     → check_and_increment_usage RPC  (rate limit: 5 req / 30 days, by IP)
- *     → match_chunks RPC               (pgvector cosine search, top 8)
- *     → RAG prompt → Sarvam sarvam-m
- *     → { answer, sources, remaining_queries }
- *
- * Env vars required (set in Vercel dashboard):
- *   SUPABASE_URL          — https://xxxx.supabase.co
- *   SUPABASE_ANON_KEY     — public anon key (safe to use from edge)
- *   SARVAM_API_KEY        — api-subscription-key header value
- */
-
 import { createClient } from '@supabase/supabase-js';
-import { ipAddress } from '@vercel/functions';
 
 export const config = { runtime: 'edge' };
-
-// ─── Supabase client ──────────────────────────────────────────────────────────
-
-function getSupabase() {
-  return createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY,
-    { auth: { persistSession: false } },
-  );
-}
-
-// ─── CORS ─────────────────────────────────────────────────────────────────────
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -41,8 +12,6 @@ const CORS = {
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
 }
-
-// ─── Prompt builder ───────────────────────────────────────────────────────────
 
 function buildPrompt(query, chunks) {
   const context = chunks
@@ -61,7 +30,7 @@ Using ONLY the corpus excerpts below, answer the user's query with:
 3. Expected timeframe (next council meeting / next budget / 2–3 quarters / next FY)
 4. Concrete things the user should monitor or prepare for
 
-Stay strictly grounded in the documents. If the corpus does not contain enough signal, say so clearly rather than speculating.
+Stay strictly grounded in the documents. If the corpus does not contain enough signal, say so clearly.
 
 CORPUS EXCERPTS:
 ${context}
@@ -78,10 +47,8 @@ Respond in this format:
 **Confidence note**: [any caveats about data coverage]`;
 }
 
-// ─── Handler ──────────────────────────────────────────────────────────────────
-
-export default {
-  async fetch(request) {
+export default async function handler(request) {
+  try {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS });
     }
@@ -89,7 +56,6 @@ export default {
       return json({ error: 'method_not_allowed' }, 405);
     }
 
-    // Parse body
     let query;
     try {
       ({ query } = await request.json());
@@ -101,46 +67,28 @@ export default {
     }
 
     const cleanQuery = query.trim().slice(0, 500);
-    const supabase = getSupabase();
 
-    // ── Rate limit ────────────────────────────────────────────────────────────
-    // Single atomic RPC: check window, reset if expired, increment, return result
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY,
+      { auth: { persistSession: false } },
+    );
 
-    const ip = ipAddress(request) ?? '0.0.0.0';
+    // ── Rate limit ─────────────────────────────────────────────────────────────
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '0.0.0.0';
     const { data: rl, error: rlErr } = await supabase.rpc('check_and_increment_usage', {
       client_ip: ip,
       free_limit: 5,
     });
 
     if (rlErr) {
-      console.error('[supabase] rate limit error:', rlErr.message);
-      // Fail open — don't block the user if rate limit DB is unreachable
+      console.error('[rate-limit]', rlErr.message);
+      // fail open — don't block on rate limit DB error
     } else if (rl && !rl.allowed) {
-      return json(
-        {
-          error: 'rate_limited',
-          message: 'You have used all 5 free queries for this month.',
-          reset_at: rl.reset_at,
-        },
-        429,
-      );
+      return json({ error: 'rate_limited', message: 'You have used all 5 free queries for this month.', reset_at: rl.reset_at }, 429);
     }
 
-    // ── Embed query ───────────────────────────────────────────────────────────
-    // Generate embedding for the query using the same model as the ingest pipeline.
-    // We call a small Supabase Edge Function or use Supabase's built-in
-    // text-embedding via the Transformers.js WASM route.
-    //
-    // Practical shortcut for V8 edge: call Supabase's /functions/v1/embed
-    // OR use the Supabase built-in vector embedding feature (if configured).
-    //
-    // For now we use the Supabase REST approach — pass raw text to match_chunks
-    // via a text-based RPC that handles embedding server-side using pg_trgm
-    // as a fallback, or configure Supabase's built-in AI embedding.
-    //
-    // Simplest working approach: embed via a POST to Supabase's embedding edge
-    // function (deployed alongside this project, see api/embed.js).
-
+    // ── Embed query via Supabase edge function ─────────────────────────────────
     let embedding;
     try {
       const embedRes = await fetch(`${process.env.SUPABASE_URL}/functions/v1/embed`, {
@@ -148,40 +96,35 @@ export default {
         headers: {
           'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
-          // Shared secret — prevents direct abuse of the embed endpoint
-          // Set EMBED_SECRET in both this function and the embed function's env vars
           ...(process.env.EMBED_SECRET ? { 'X-Embed-Secret': process.env.EMBED_SECRET } : {}),
         },
         body: JSON.stringify({ text: cleanQuery }),
       });
-      if (!embedRes.ok) throw new Error(`embed status ${embedRes.status}`);
+      if (!embedRes.ok) {
+        const errText = await embedRes.text();
+        throw new Error(`embed ${embedRes.status}: ${errText}`);
+      }
       ({ embedding } = await embedRes.json());
     } catch (e) {
-      console.error('[embed] failed:', e);
-      return json({ error: 'embed_error', message: 'Failed to process query.' }, 502);
+      console.error('[embed]', e.message);
+      return json({ error: 'embed_error', message: 'Failed to embed query.' }, 502);
     }
 
-    // ── Vector search ─────────────────────────────────────────────────────────
-
+    // ── Vector search ──────────────────────────────────────────────────────────
     const { data: chunks, error: searchErr } = await supabase.rpc('match_chunks', {
       query_embedding: embedding,
       match_count: 8,
     });
 
     if (searchErr) {
-      console.error('[supabase] vector search error:', searchErr.message);
+      console.error('[match_chunks]', searchErr.message);
       return json({ error: 'search_error', message: 'Vector search unavailable.' }, 502);
     }
-
     if (!chunks?.length) {
-      return json({
-        error: 'no_context',
-        message: 'No relevant documents found. The ingest pipeline may not have run yet.',
-      });
+      return json({ error: 'no_context', message: 'No relevant documents found.' });
     }
 
-    // ── Sarvam ────────────────────────────────────────────────────────────────
-
+    // ── Sarvam ─────────────────────────────────────────────────────────────────
     let sarvamRes;
     try {
       sarvamRes = await fetch('https://api.sarvam.ai/v1/chat/completions', {
@@ -193,11 +136,7 @@ export default {
         body: JSON.stringify({
           model: 'sarvam-m',
           messages: [
-            {
-              role: 'system',
-              content:
-                'You are a GST regulatory foresight analyst for India. Provide structured, evidence-grounded assessments of upcoming GST regulatory changes based strictly on the documents provided.',
-            },
+            { role: 'system', content: 'You are a GST regulatory foresight analyst for India. Provide structured, evidence-grounded assessments based strictly on the documents provided.' },
             { role: 'user', content: buildPrompt(cleanQuery, chunks) },
           ],
           temperature: 0.2,
@@ -206,12 +145,13 @@ export default {
         }),
       });
     } catch (e) {
-      console.error('[sarvam] fetch failed:', e);
+      console.error('[sarvam fetch]', e.message);
       return json({ error: 'llm_unavailable', message: 'Analysis service temporarily unavailable.' }, 502);
     }
 
     if (!sarvamRes.ok) {
-      console.error('[sarvam] error response:', await sarvamRes.text());
+      const errText = await sarvamRes.text();
+      console.error('[sarvam]', sarvamRes.status, errText);
       return json({ error: 'llm_error', message: 'Failed to generate analysis.' }, 502);
     }
 
@@ -220,7 +160,7 @@ export default {
 
     return json({
       answer,
-      sources: chunks.slice(0, 4).map((c) => ({
+      sources: chunks.slice(0, 4).map(c => ({
         source_id: c.source_id,
         date: c.date,
         topic_tags: c.topic_tags,
@@ -229,5 +169,10 @@ export default {
       remaining_queries: rl?.remaining ?? null,
       query: cleanQuery,
     });
-  },
-};
+
+  } catch (e) {
+    // top-level safety net — should never fire but prevents opaque 500s
+    console.error('[query unhandled]', e.message, e.stack);
+    return json({ error: 'internal', message: e.message }, 500);
+  }
+}
