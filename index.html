@@ -79,7 +79,8 @@ function probTier(p) { return p >= 70 ? 'high' : p >= 50 ? 'med' : 'low'; }
 function fmtDelta(d) { return d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${Math.abs(d)}` : '·'; }
 
 // Sunrise/sunset via NOAA solar position equation.
-// Returns { rise, set } as minutes-since-local-midnight.
+// All times are in UTC minutes to avoid browser-timezone ambiguity —
+// rise, set, and current time are all compared in the same UTC frame.
 function computeSunTimes(lat, lng) {
   const DEG = Math.PI / 180;
   const JD = Date.now() / 86400000 + 2440587.5;
@@ -96,12 +97,15 @@ function computeSunTimes(lat, lng) {
   if (cos_ha < -1) return { rise: 0, set: 1440 };
   if (cos_ha >  1) return { rise: 720, set: 720 };
   const ha_deg = Math.acos(cos_ha) / DEG;
-  const toLocal = jd => { const d = new Date((jd - 2440587.5) * 86400000); return d.getHours() * 60 + d.getMinutes(); };
-  return { rise: toLocal(J_trans - ha_deg / 360), set: toLocal(J_trans + ha_deg / 360) };
+  // toUTC: convert Julian Day → UTC minutes since midnight. Explicit UTC avoids
+  // browser timezone mismatches (VPN, wrong system clock, non-IST browsers).
+  const toUTC = jd => { const d = new Date((jd - 2440587.5) * 86400000); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
+  return { rise: toUTC(J_trans - ha_deg / 360), set: toUTC(J_trans + ha_deg / 360) };
 }
 function isDayTime(lat = 20, lng = 78) {
   const { rise, set } = computeSunTimes(lat, lng);
-  const m = new Date().getHours() * 60 + new Date().getMinutes();
+  const now = new Date();
+  const m = now.getUTCHours() * 60 + now.getUTCMinutes();
   return m >= rise && m < set;
 }
 
@@ -730,7 +734,7 @@ function DirectionA({ tweak, predictions, liveData, onViewQuery, onViewPredictio
 
   const docCount = liveData?.doc_count || 2841;
   const updatedLabel = liveData
-    ? `UPDATED ${new Date(liveData.generated_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}).toUpperCase()} 2026 · ${new Date(liveData.generated_at).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})} IST`
+    ? `UPDATED ${new Date(liveData.generated_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',timeZone:'Asia/Calcutta'}).toUpperCase()} 2026 · ${new Date(liveData.generated_at).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Calcutta',hour12:false})} IST`
     : 'UPDATED 09 MAY 2026 · 08:31 IST';
 
   return (
