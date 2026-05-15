@@ -166,7 +166,7 @@ export default async function handler(request) {
 
     if (searchErr) {
       console.error('[match_chunks]', searchErr.message);
-      return r({ error: 'search_error', message: 'Vector search unavailable.' }, 502);
+      return r({ error: 'search_error', message: 'Vector search unavailable.', _debug: searchErr.message }, 502);
     }
     if (!chunks?.length) {
       return r({ error: 'no_context', message: 'No relevant documents found for this query.' }, 200);
