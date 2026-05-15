@@ -190,29 +190,34 @@ class PredictionEngine:
     ) -> Optional[Signal]:
         """
         Signal: topic appears in GST Council minutes as deferred.
-        Deferred items almost always resurface in next 1-2 meetings.
+        Strength scales with deferral count — a third deferral is statistically
+        rare and implies imminent resolution.
         """
         council_docs = [
             d for d in docs
             if d.get("source_id") == "gst_council_minutes"
             and topic_id in d.get("topic_tags", [])
         ]
-        # Look for deferral language in content
         deferred = [
             d for d in council_docs
             if any(
                 kw in (d.get("content") or "").lower()
-                for kw in ["defer", "next meeting", "further deliberation", "examine further"]
+                for kw in ["defer", "next meeting", "further deliberation", "examine further",
+                           "kept in abeyance", "referred back", "pending decision"]
             )
         ]
         if not deferred:
             return None
 
+        count = len(deferred)
+        # 1 deferral → 0.65, 2 → 0.80, 3+ → 0.92
+        strength = min(0.55 + count * 0.15, 0.92)
+
         return Signal(
             signal_type="council_deferred_item",
             topic_id=topic_id,
-            strength=0.85,
-            description=f"Item deferred in {len(deferred)} GST Council meeting(s) — high likelihood of resolution in next meeting",
+            strength=round(strength, 2),
+            description=f"Item deferred in {count} GST Council meeting(s) — {'repeated deferrals indicate imminent resolution' if count >= 2 else 'deferred items typically resurface within 1–2 meetings'}",
             source_docs=[d["doc_id"] for d in deferred],
             horizon_days=90,
         )
@@ -258,17 +263,17 @@ class PredictionEngine:
     ) -> Optional[Signal]:
         """
         Signal: topic mentioned with action language in budget speech.
-        Budget speech + topic mention reliably precedes council action.
+        Strength decays with age — a 2025 mention is far more predictive
+        than a 2022 mention that went unacted on.
         """
         budget_docs = [
             d for d in docs
             if d.get("source_id") == "budget_speeches"
             and topic_id in d.get("topic_tags", [])
         ]
-        # Check for action phrases (not just mentions)
         action_phrases = [
             "rationalise", "simplify", "review", "examine", "bring within",
-            "relief", "reduce", "exempt", "clarif"
+            "relief", "reduce", "exempt", "clarif", "expand", "mandate", "extend"
         ]
         actionable = [
             d for d in budget_docs
@@ -277,14 +282,58 @@ class PredictionEngine:
         if not actionable:
             return None
 
-        # Most recent budget speech year
-        years = [d.get("metadata", {}).get("year", "?") for d in actionable]
+        current_year = datetime.utcnow().year
+        # Score by recency: most recent mention drives the strength
+        strength = 0.30
+        years = []
+        for d in actionable:
+            year = d.get("metadata", {}).get("year") or d.get("date", "")[:4]
+            years.append(str(year))
+            try:
+                age = current_year - int(year)
+                # 0 yrs ago → 0.82, 1 yr → 0.68, 2 yrs → 0.54, 3+ → 0.40
+                doc_strength = max(0.82 - age * 0.14, 0.30)
+                strength = max(strength, doc_strength)
+            except (ValueError, TypeError):
+                pass
+
         return Signal(
             signal_type="budget_speech_phrase",
             topic_id=topic_id,
-            strength=0.70,
-            description=f"Budget speech ({', '.join(years)}) contained action language on this topic",
+            strength=round(strength, 2),
+            description=f"Budget speech ({', '.join(sorted(set(years), reverse=True))}) contained action language — {'recent signal, high predictive weight' if strength >= 0.68 else 'older signal, moderate predictive weight'}",
             source_docs=[d["doc_id"] for d in actionable],
+            horizon_days=180,
+        )
+
+    def evaluate_judicial_split(
+        self, docs: list[dict], topic_id: str
+    ) -> Optional[Signal]:
+        """
+        Signal: conflicting HC rulings on the same topic.
+        When two or more HCs reach different conclusions, CBIC almost always
+        issues a clarificatory circular to resolve the ambiguity.
+        """
+        conflict_keywords = [
+            "conflicting", "contrary view", "different view", "divergent",
+            "split", "overruled", "distinguished", "contrary to", "dissent"
+        ]
+        relevant = [
+            d for d in docs
+            if d.get("source_id") in ["aar_rulings", "high_court_orders"]
+            and topic_id in d.get("topic_tags", [])
+            and any(kw in (d.get("content") or "").lower() for kw in conflict_keywords)
+        ]
+        if len(relevant) < 2:
+            return None
+
+        strength = min(0.40 + len(relevant) * 0.08, 0.75)
+        return Signal(
+            signal_type="judicial_split",
+            topic_id=topic_id,
+            strength=round(strength, 2),
+            description=f"{len(relevant)} rulings contain conflicting language on this topic — CBIC typically issues a clarificatory circular to resolve HC/AAR splits",
+            source_docs=[d["doc_id"] for d in relevant[-5:]],
             horizon_days=180,
         )
 
@@ -327,6 +376,7 @@ class PredictionEngine:
             self.evaluate_aar_ruling_frequency,
             self.evaluate_budget_speech_phrase,
             self.evaluate_industry_ask_repeat,
+            self.evaluate_judicial_split,
         ]
 
         predictions = []

@@ -106,7 +106,7 @@ sources:
     signal_type: industry_demand
     update_schedule: annual
     weight: 0.10
-    active: false  # enable before budget season
+    active: true
 
   # PLANNED SOURCES — not yet active
   high_court_orders:
