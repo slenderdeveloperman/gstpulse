@@ -169,7 +169,7 @@ export default async function handler(request) {
       const searchRes = await fetch(`${supabaseUrl}/rest/v1/rpc/match_chunks`, {
         method: 'POST',
         headers: supabaseHeaders,
-        body: JSON.stringify({ query_embedding: embedding, match_count: 8, match_threshold: 0.3 }),
+        body: JSON.stringify({ query_embedding: embedding, match_count: 5, match_threshold: 0.3 }),
       });
       if (!searchRes.ok) {
         const errText = await searchRes.text();
@@ -200,7 +200,7 @@ export default async function handler(request) {
             { role: 'user', content: buildPrompt(cleanQuery, chunks) },
           ],
           temperature: 0.2,
-          max_tokens: 1024,
+          max_tokens: 800,
           stream: false,
         }),
       });
