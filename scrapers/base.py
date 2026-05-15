@@ -54,6 +54,9 @@ ALLOWED_DOMAINS = {
     "pib.gov.in",            # Press Information Bureau
     "sansad.in",             # Parliamentary portal
     "egazette.nic.in",       # Official Gazette of India
+    # ICAI hosts PDFs on CloudFront CDN — needed for pre-budget memoranda
+    "d23z1tp9il9etb.cloudfront.net",
+    "idtc.icai.org",
 }
 
 # Cap response body to 10 MB — guards against runaway/misconfigured servers.

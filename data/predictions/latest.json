@@ -1,15 +1,109 @@
 {
-  "generated_at": "2026-05-15T06:40:30.998756",
-  "doc_count": 268,
-  "prediction_count": 11,
+  "generated_at": "2026-05-15T07:18:00.012046",
+  "doc_count": 441,
+  "prediction_count": 12,
   "predictions": [
+    {
+      "topic_id": "ims_itc_flow",
+      "topic_label": "IMS / ITC Flow Mechanism",
+      "probability": 76.3,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 2,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.92,
+          "description": "Item deferred in 6 GST Council meeting(s) \u2014 repeated deferrals indicate imminent resolution",
+          "source_docs": [
+            "gst_council_42",
+            "gst_council_55",
+            "gst_council_25",
+            "gst_council_45",
+            "gst_council_26"
+          ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 28 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_budget_memo_913b9b7cea25",
+            "icai_idtc_home_a181b049fa76",
+            "icai_idtc_home_473d58246d54",
+            "icai_idtc_home_946877f29c97",
+            "icai_budget_memo_2cb82bca83e0"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-15T07:17:59.817404"
+    },
+    {
+      "topic_id": "rate_rationalisation",
+      "topic_label": "Rate Changes",
+      "probability": 74.4,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 4,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.92,
+          "description": "Item deferred in 50 GST Council meeting(s) \u2014 repeated deferrals indicate imminent resolution",
+          "source_docs": [
+            "gst_council_23",
+            "gst_council_35",
+            "gst_council_19",
+            "gst_council_39",
+            "gst_council_42"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.68,
+          "description": "Budget speech (2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 2008, 2007, 2006, 2005, 2004, 2003, 2002, 2001, 2000) contained action language \u2014 older signal, moderate predictive weight",
+          "source_docs": [
+            "budget_speech_2021",
+            "budget_speech_2017",
+            "budget_speech_2001",
+            "budget_speech_2000",
+            "budget_speech_2016"
+          ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 102 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_idtc_home_14e0d626b23f",
+            "icai_idtc_home_5e3685aa6e88",
+            "icai_idtc_home_dc51cc7a6f86",
+            "icai_budget_memo_913b9b7cea25"
+          ]
+        },
+        {
+          "type": "judicial_split",
+          "strength": 0.8,
+          "description": "17 rulings across 9 courts/tribunals (Bombay High Court, Calcutta High Court, Calcutta High Court (Appellete Side), Delhi High Court) \u2014 multi-forum litigation on the same GST issue reliably precedes CBIC clarification",
+          "source_docs": [
+            "judgment_50c3aa8c80b3",
+            "judgment_934748e26df2",
+            "judgment_e4c67300260b",
+            "judgment_4eb7a3e29862",
+            "judgment_bc5c0c58fc7d"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-15T07:17:59.732355"
+    },
     {
       "topic_id": "classification_disputes",
       "topic_label": "Classification Clarifications",
-      "probability": 79.3,
+      "probability": 74.4,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 3,
+      "signal_count": 4,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -36,6 +130,18 @@
           ]
         },
         {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 58 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_idtc_home_14e0d626b23f",
+            "icai_idtc_home_5e3685aa6e88",
+            "icai_idtc_home_dc51cc7a6f86",
+            "icai_idtc_home_fbd499e4f631"
+          ]
+        },
+        {
           "type": "judicial_split",
           "strength": 0.8,
           "description": "19 rulings across 8 courts/tribunals (Calcutta High Court, Calcutta High Court (Appellete Side), Delhi High Court, Gujarat High Court) \u2014 multi-forum litigation on the same GST issue reliably precedes CBIC clarification",
@@ -48,15 +154,15 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T06:40:30.836642"
+      "generated_at": "2026-05-15T07:17:59.847522"
     },
     {
       "topic_id": "place_of_supply",
       "topic_label": "Place of Supply",
-      "probability": 79.1,
+      "probability": 72.7,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 2,
+      "signal_count": 3,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -80,17 +186,29 @@
             "budget_speech_2019",
             "budget_speech_2022"
           ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 52 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_idtc_home_5e3685aa6e88",
+            "icai_idtc_home_dc51cc7a6f86",
+            "icai_idtc_home_a181b049fa76",
+            "icai_idtc_home_473d58246d54"
+          ]
         }
       ],
-      "generated_at": "2026-05-15T06:40:30.890043"
+      "generated_at": "2026-05-15T07:17:59.901534"
     },
     {
       "topic_id": "msme_composition",
       "topic_label": "MSME / Composition Scheme",
-      "probability": 79.1,
+      "probability": 72.7,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 2,
+      "signal_count": 3,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -115,17 +233,29 @@
             "budget_speech_2020",
             "budget_speech_2013"
           ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 45 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_idtc_home_14e0d626b23f",
+            "icai_idtc_home_fbd499e4f631",
+            "icai_idtc_home_473d58246d54",
+            "icai_budget_memo_f2545bce308d"
+          ]
         }
       ],
-      "generated_at": "2026-05-15T06:40:30.916331"
+      "generated_at": "2026-05-15T07:17:59.928229"
     },
     {
       "topic_id": "real_estate",
       "topic_label": "Real Estate / Construction",
-      "probability": 79.1,
+      "probability": 72.7,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 2,
+      "signal_count": 3,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -150,17 +280,29 @@
             "budget_speech_2000",
             "budget_speech_2016"
           ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 41 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_idtc_home_212aa6996d00",
+            "icai_budget_memo_913b9b7cea25",
+            "icai_idtc_home_fbd499e4f631",
+            "icai_idtc_home_33b970f98f20"
+          ]
         }
       ],
-      "generated_at": "2026-05-15T06:40:30.953461"
+      "generated_at": "2026-05-15T07:17:59.965527"
     },
     {
       "topic_id": "itc_eligibility",
       "topic_label": "ITC Eligibility Rules",
-      "probability": 68.6,
+      "probability": 65.9,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 4,
+      "signal_count": 5,
       "signals": [
         {
           "type": "repeated_circular_topic",
@@ -196,6 +338,18 @@
           ]
         },
         {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 95 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_budget_memo_8e0fdea78049",
+            "icai_idtc_home_14e0d626b23f",
+            "icai_idtc_home_5e3685aa6e88",
+            "icai_idtc_home_dc51cc7a6f86"
+          ]
+        },
+        {
           "type": "judicial_split",
           "strength": 0.8,
           "description": "15 rulings across 8 courts/tribunals (Andhra Pradesh High Court - Amravati, Bombay High Court, Calcutta High Court (Appellete Side), Delhi High Court) \u2014 multi-forum litigation on the same GST issue reliably precedes CBIC clarification",
@@ -208,71 +362,15 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T06:40:30.650252"
-    },
-    {
-      "topic_id": "rate_rationalisation",
-      "topic_label": "Rate Changes",
-      "probability": 68.6,
-      "horizon_label": "Next GST Council meeting",
-      "horizon_days": 90,
-      "signal_count": 4,
-      "signals": [
-        {
-          "type": "repeated_circular_topic",
-          "strength": 0.3,
-          "description": "2 CBIC circulars on this topic \u2014 ongoing ambiguity suggests further clarification likely",
-          "source_docs": [
-            "cbic_circ_pdf_gst_circular_pdf",
-            "cbic_circ_pdf_circular_no_249_2025_pdf"
-          ]
-        },
-        {
-          "type": "council_deferred_item",
-          "strength": 0.92,
-          "description": "Item deferred in 50 GST Council meeting(s) \u2014 repeated deferrals indicate imminent resolution",
-          "source_docs": [
-            "gst_council_23",
-            "gst_council_35",
-            "gst_council_19",
-            "gst_council_39",
-            "gst_council_42"
-          ]
-        },
-        {
-          "type": "budget_speech_phrase",
-          "strength": 0.68,
-          "description": "Budget speech (2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 2008, 2007, 2006, 2005, 2004, 2003, 2002, 2001, 2000) contained action language \u2014 older signal, moderate predictive weight",
-          "source_docs": [
-            "budget_speech_2021",
-            "budget_speech_2017",
-            "budget_speech_2001",
-            "budget_speech_2000",
-            "budget_speech_2016"
-          ]
-        },
-        {
-          "type": "judicial_split",
-          "strength": 0.8,
-          "description": "17 rulings across 9 courts/tribunals (Bombay High Court, Calcutta High Court, Calcutta High Court (Appellete Side), Delhi High Court) \u2014 multi-forum litigation on the same GST issue reliably precedes CBIC clarification",
-          "source_docs": [
-            "judgment_50c3aa8c80b3",
-            "judgment_934748e26df2",
-            "judgment_e4c67300260b",
-            "judgment_4eb7a3e29862",
-            "judgment_bc5c0c58fc7d"
-          ]
-        }
-      ],
-      "generated_at": "2026-05-15T06:40:30.722212"
+      "generated_at": "2026-05-15T07:17:59.661133"
     },
     {
       "topic_id": "return_format",
       "topic_label": "Return Format / Process Changes",
-      "probability": 64.0,
+      "probability": 60.4,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 2,
+      "signal_count": 3,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -295,17 +393,29 @@
             "budget_speech_2023",
             "budget_speech_2003"
           ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 77 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_budget_memo_8e0fdea78049",
+            "icai_idtc_home_14e0d626b23f",
+            "icai_budget_memo_913b9b7cea25",
+            "icai_idtc_home_fbd499e4f631"
+          ]
         }
       ],
-      "generated_at": "2026-05-15T06:40:30.778722"
+      "generated_at": "2026-05-15T07:17:59.789143"
     },
     {
       "topic_id": "e_invoicing",
       "topic_label": "E-Invoicing Expansion",
-      "probability": 62.1,
+      "probability": 59.6,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 3,
+      "signal_count": 4,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -328,6 +438,18 @@
           ]
         },
         {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 48 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_idtc_home_dc51cc7a6f86",
+            "icai_budget_memo_913b9b7cea25",
+            "icai_idtc_home_a181b049fa76",
+            "icai_idtc_home_473d58246d54"
+          ]
+        },
+        {
           "type": "judicial_split",
           "strength": 0.71,
           "description": "3 rulings across 2 courts/tribunals (Bombay High Court, Delhi District Court) \u2014 multi-forum litigation on the same GST issue reliably precedes CBIC clarification",
@@ -338,15 +460,15 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T06:40:30.813710"
+      "generated_at": "2026-05-15T07:17:59.824473"
     },
     {
       "topic_id": "rcm_coverage",
       "topic_label": "Reverse Charge Mechanism",
-      "probability": 58.6,
+      "probability": 56.1,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 2,
+      "signal_count": 3,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -367,17 +489,29 @@
           "source_docs": [
             "budget_speech_2009"
           ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 67 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_budget_memo_8e0fdea78049",
+            "icai_idtc_home_14e0d626b23f",
+            "icai_idtc_home_ed25fdb1a188",
+            "icai_idtc_home_dc51cc7a6f86"
+          ]
         }
       ],
-      "generated_at": "2026-05-15T06:40:30.704296"
+      "generated_at": "2026-05-15T07:17:59.714417"
     },
     {
       "topic_id": "valuation",
       "topic_label": "Valuation Rules",
-      "probability": 58.6,
+      "probability": 56.1,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 2,
+      "signal_count": 3,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -402,17 +536,29 @@
             "budget_speech_2004",
             "budget_speech_2015"
           ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 39 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_idtc_home_dc51cc7a6f86",
+            "icai_budget_memo_913b9b7cea25",
+            "icai_idtc_home_fbd499e4f631",
+            "icai_idtc_home_33b970f98f20"
+          ]
         }
       ],
-      "generated_at": "2026-05-15T06:40:30.866498"
+      "generated_at": "2026-05-15T07:17:59.877588"
     },
     {
       "topic_id": "gst_on_crypto_vda",
       "topic_label": "VDA / Crypto Treatment",
-      "probability": 48.5,
+      "probability": 47.8,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 2,
+      "signal_count": 3,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -430,9 +576,18 @@
             "budget_speech_2022",
             "budget_speech_2018"
           ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 2 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_e007bf60a4e1",
+            "icai_idtc_home_b1500a2928c9"
+          ]
         }
       ],
-      "generated_at": "2026-05-15T06:40:30.912525"
+      "generated_at": "2026-05-15T07:17:59.924314"
     }
   ]
 }

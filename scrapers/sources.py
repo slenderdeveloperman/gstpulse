@@ -452,72 +452,101 @@ class ICAIRepresentationScraper(BaseScraper):
         ("https://idtc.icai.org/representation.html", "representation"),
         ("https://idtc.icai.org/", "idtc_home"),
     ]
+    # Only follow homepage links that look like signal docs.
+    # Filters out certificate courses, batch registrations, event pages, etc.
+    SIGNAL_KEYWORDS = {
+        "budget", "memorandum", "representation", "suggestion", "circular",
+        "gst", "indirect tax", "idtc", "submission", "pre-budget",
+    }
 
     def scrape(self) -> list[Document]:
         docs = []
         seen_ids = set()
 
         for page_url, doc_type in self.SOURCES:
+            print(f"[icai] fetching source page: {page_url}", flush=True)
             try:
                 soup = self.fetch_html(page_url)
-
-                for link in soup.find_all("a", href=True):
-                    href = link["href"]
-                    text = link.get_text(strip=True)
-
-                    if not text or len(text) < 12:
-                        continue
-
-                    # Only process PDF links or links that stay on ICAI domain
-                    is_pdf = href.lower().endswith(".pdf")
-                    is_internal = "icai.org" in href or href.startswith("/")
-                    if not (is_pdf or is_internal):
-                        continue
-
-                    full_url = href if href.startswith("http") else urljoin(page_url, href)
-
-                    try:
-                        self._validate_url(full_url)
-                    except ValueError:
-                        continue
-
-                    doc_id = f"icai_{doc_type}_{Document.content_hash(href)}"
-                    if doc_id in seen_ids:
-                        continue
-                    seen_ids.add(doc_id)
-
-                    year_match = re.search(r"20\d{2}", text + href)
-                    year = year_match.group(0) if year_match else "unknown"
-
-                    full_text = None
-                    if is_pdf:
-                        full_text = self.fetch_pdf_text(full_url)
-                    else:
-                        pdf_url = self._find_pdf_url(full_url)
-                        if pdf_url:
-                            full_text = self.fetch_pdf_text(pdf_url)
-
-                    date = datetime(int(year), 1, 1) if year != "unknown" else None
-
-                    docs.append(Document(
-                        source_id=self.source_id,
-                        doc_id=doc_id,
-                        title=text,
-                        url=full_url,
-                        date=date,
-                        content=full_text or text,
-                        metadata={
-                            "doc_type": doc_type,
-                            "year": year,
-                            "source_page": page_url,
-                            "full_text_extracted": full_text is not None,
-                        },
-                    ))
-
             except Exception as e:
-                print(f"[icai_representations] {page_url}: {e}")
+                print(f"[icai] {page_url}: {e}", flush=True)
+                continue
 
-        print(f"[icai_representations] collected {len(docs)} documents")
+            links = soup.find_all("a", href=True)
+            print(f"[icai] {page_url}: {len(links)} links found", flush=True)
+
+            for link in links:
+                href = link["href"]
+                text = link.get_text(strip=True)
+
+                if not text or len(text) < 12:
+                    continue
+
+                is_pdf = href.lower().endswith(".pdf")
+                is_internal = "icai.org" in href or href.startswith("/")
+                if not (is_pdf or is_internal):
+                    continue
+
+                full_url = href if href.startswith("http") else urljoin(page_url, href)
+
+                try:
+                    self._validate_url(full_url)
+                except ValueError as e:
+                    print(f"[icai] blocked: {full_url[:80]} — {e}", flush=True)
+                    continue
+
+                doc_id = f"icai_{doc_type}_{Document.content_hash(href)}"
+                if doc_id in seen_ids:
+                    continue
+                seen_ids.add(doc_id)
+
+                if self.doc_cached(doc_id):
+                    print(f"[icai] cached, skipping: {text[:50]}", flush=True)
+                    continue
+
+                year_match = re.search(r"20\d{2}", text + href)
+                year = year_match.group(0) if year_match else "unknown"
+
+                full_text = None
+                if is_pdf:
+                    print(f"[icai] downloading PDF: {full_url[:90]}", flush=True)
+                    full_text = self.fetch_pdf_text(full_url)
+                else:
+                    # On the homepage, skip non-PDF links that don't look like
+                    # signal docs (filters out course pages, event registrations, etc.)
+                    if doc_type == "idtc_home":
+                        combined = (text + " " + href).lower()
+                        if not any(kw in combined for kw in self.SIGNAL_KEYWORDS):
+                            continue
+                    print(f"[icai] probing HTML for PDF: {full_url[:90]}", flush=True)
+                    pdf_url = self._find_pdf_url(full_url)
+                    if pdf_url:
+                        print(f"[icai]   → found PDF: {pdf_url[:90]}", flush=True)
+                        full_text = self.fetch_pdf_text(pdf_url)
+                    else:
+                        print(f"[icai]   → no PDF found, skipping", flush=True)
+                        continue
+
+                chars = len(full_text) if full_text else 0
+                print(f"[icai] {'OK' if full_text else 'no text'} — {chars:,} chars — {text[:50]}", flush=True)
+
+                date = datetime(int(year), 1, 1) if year != "unknown" else None
+
+                docs.append(Document(
+                    source_id=self.source_id,
+                    doc_id=doc_id,
+                    title=text,
+                    url=full_url,
+                    date=date,
+                    content=full_text or text,
+                    metadata={
+                        "doc_type": doc_type,
+                        "year": year,
+                        "source_page": page_url,
+                        "full_text_extracted": full_text is not None,
+                    },
+                ))
+
+        print(f"[icai_representations] collected {len(docs)} documents", flush=True)
         return docs
 
 

@@ -358,7 +358,7 @@ class PredictionEngine:
         """
         memo_docs = [
             d for d in docs
-            if d.get("source_id") in ["icai_memoranda", "ficci_submissions"]
+            if d.get("source_id") in ["icai_memoranda", "icai_representations", "ficci_submissions"]
             and topic_id in d.get("topic_tags", [])
         ]
         if len(memo_docs) < 2:
