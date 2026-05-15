@@ -310,29 +310,41 @@ class PredictionEngine:
         self, docs: list[dict], topic_id: str
     ) -> Optional[Signal]:
         """
-        Signal: conflicting HC rulings on the same topic.
-        When two or more HCs reach different conclusions, CBIC almost always
-        issues a clarificatory circular to resolve the ambiguity.
+        Signal: rulings on the same topic from multiple distinct courts/tribunals.
+        Multiple jurisdictions ruling on the same GST question creates interpretive
+        divergence that CBIC almost always resolves with a clarificatory circular
+        within 6–12 months. Detected structurally (distinct courts, same topic)
+        rather than by keyword — works on short snippets, not just full texts.
         """
-        conflict_keywords = [
-            "conflicting", "contrary view", "different view", "divergent",
-            "split", "overruled", "distinguished", "contrary to", "dissent"
-        ]
         relevant = [
             d for d in docs
-            if d.get("source_id") in ["aar_rulings", "high_court_orders"]
-            and topic_id in d.get("topic_tags", [])
-            and any(kw in (d.get("content") or "").lower() for kw in conflict_keywords)
+            if d.get("source_id") in ["aar_rulings", "court_judgments", "high_court_orders"]
+            and topic_id in (d.get("topic_tags") or [])
         ]
         if len(relevant) < 2:
             return None
 
-        strength = min(0.40 + len(relevant) * 0.08, 0.75)
+        # Count distinct courts — a split requires at least 2 different forums
+        courts = set()
+        for d in relevant:
+            court = (d.get("metadata") or {}).get("court", "").strip()
+            if court:
+                courts.add(court)
+
+        if len(courts) < 2:
+            return None
+
+        # More rulings + more distinct courts = stronger signal
+        ruling_factor = min(len(relevant) * 0.07, 0.30)
+        court_factor  = min((len(courts) - 1) * 0.12, 0.30)
+        strength = round(min(0.38 + ruling_factor + court_factor, 0.80), 2)
+
+        court_list = ", ".join(sorted(courts)[:4])
         return Signal(
             signal_type="judicial_split",
             topic_id=topic_id,
-            strength=round(strength, 2),
-            description=f"{len(relevant)} rulings contain conflicting language on this topic — CBIC typically issues a clarificatory circular to resolve HC/AAR splits",
+            strength=strength,
+            description=f"{len(relevant)} rulings across {len(courts)} courts/tribunals ({court_list}) — multi-forum litigation on the same GST issue reliably precedes CBIC clarification",
             source_docs=[d["doc_id"] for d in relevant[-5:]],
             horizon_days=180,
         )

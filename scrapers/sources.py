@@ -358,12 +358,25 @@ class IndianKanoonScraper(BaseScraper):
                         break
 
                     for result in results:
-                        title_tag = result.select_one(".result_title a, h3 a, a[href^='/doc/']")
+                        # Title is in .result_title a (href = /docfragment/{id}/)
+                        # Canonical URL is in the "Full Document" cite_tag (href = /doc/{id}/)
+                        title_tag = result.select_one(".result_title a, h4 a")
                         if not title_tag:
                             continue
 
-                        href = title_tag.get("href", "")
-                        if not href or not href.startswith("/doc/"):
+                        title = title_tag.get_text(strip=True)
+
+                        # Prefer the /doc/ href; fall back to extracting id from /docfragment/
+                        full_doc_link = result.select_one("a[href^='/doc/']")
+                        if full_doc_link:
+                            href = full_doc_link.get("href", "")
+                        else:
+                            frag = title_tag.get("href", "")
+                            import re as _re
+                            m = _re.search(r"/docfragment/(\d+)/", frag)
+                            href = f"/doc/{m.group(1)}/" if m else ""
+
+                        if not href:
                             continue
 
                         doc_id = f"judgment_{Document.content_hash(href)}"
@@ -371,21 +384,21 @@ class IndianKanoonScraper(BaseScraper):
                             continue
                         seen_ids.add(doc_id)
 
-                        title = title_tag.get_text(strip=True)
                         doc_url = f"{self.BASE_URL}{href}"
 
-                        # Court name and date live in docsource_main
-                        # Format: "High Court of Delhi, Jan 15, 2025"
-                        meta_tag = result.select_one(".docsource_main")
-                        court = date_text = ""
-                        if meta_tag:
-                            meta = meta_tag.get_text(strip=True)
-                            parts = [p.strip() for p in meta.split(",", 1)]
-                            court = parts[0]
-                            date_text = parts[1] if len(parts) > 1 else ""
+                        # Court lives in .docsource (not .docsource_main)
+                        meta_tag = result.select_one(".docsource")
+                        court = meta_tag.get_text(strip=True) if meta_tag else ""
 
-                        # Judgment snippet — main signal text
-                        snippet_tag = result.select_one(".snippet_part, .result_title ~ div")
+                        # Date is embedded in the title "Case Name on DD Mon, YYYY"
+                        import re as _re2
+                        date_text = ""
+                        dm = _re2.search(r" on (\d{1,2} \w+,? \d{4})$", title)
+                        if dm:
+                            date_text = dm.group(1).replace(",", "").strip()
+
+                        # Snippet for content
+                        snippet_tag = result.select_one(".headline, .snippet_part")
                         snippet = snippet_tag.get_text(strip=True) if snippet_tag else ""
 
                         date = self._parse_ik_date(date_text)
