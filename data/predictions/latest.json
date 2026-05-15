@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-05-15T09:43:27.199990",
+  "generated_at": "2026-05-15T11:41:34.616525",
   "doc_count": 444,
   "prediction_count": 12,
   "predictions": [
     {
       "topic_id": "ims_itc_flow",
       "topic_label": "IMS / ITC Flow Mechanism",
-      "probability": 76.3,
+      "probability": 77.5,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 2,
+      "signal_count": 3,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -21,6 +21,14 @@
             "gst_council_25",
             "gst_council_45",
             "gst_council_26"
+          ]
+        },
+        {
+          "type": "government_forward_signal",
+          "strength": 0.8,
+          "description": "PIB Finance Ministry release (1d ago) with imminent language on this topic \u2014 ministry-level attention typically precedes Council action within 1\u20132 meetings",
+          "source_docs": [
+            "pib_2260904"
           ]
         },
         {
@@ -36,15 +44,15 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T09:43:27.006775"
+      "generated_at": "2026-05-15T11:41:34.494695"
     },
     {
       "topic_id": "rate_rationalisation",
       "topic_label": "Rate Changes",
-      "probability": 74.4,
+      "probability": 76.6,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 4,
+      "signal_count": 5,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -68,6 +76,16 @@
             "budget_speech_2001",
             "budget_speech_2000",
             "budget_speech_2016"
+          ]
+        },
+        {
+          "type": "government_forward_signal",
+          "strength": 0.88,
+          "description": "3 PIB Finance releases on this topic \u2014 ministry-level attention typically precedes Council action within 1\u20132 meetings",
+          "source_docs": [
+            "pib_2258734",
+            "pib_2261174",
+            "pib_2260904"
           ]
         },
         {
@@ -95,15 +113,15 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T09:43:26.920404"
+      "generated_at": "2026-05-15T11:41:34.440723"
     },
     {
       "topic_id": "classification_disputes",
       "topic_label": "Classification Clarifications",
-      "probability": 74.4,
+      "probability": 75.3,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 4,
+      "signal_count": 5,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -127,6 +145,14 @@
             "budget_speech_2016",
             "budget_speech_2020",
             "budget_speech_2011"
+          ]
+        },
+        {
+          "type": "government_forward_signal",
+          "strength": 0.8,
+          "description": "PIB Finance Ministry release (1d ago) with imminent language on this topic \u2014 ministry-level attention typically precedes Council action within 1\u20132 meetings",
+          "source_docs": [
+            "pib_2260904"
           ]
         },
         {
@@ -154,7 +180,62 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T09:43:27.036982"
+      "generated_at": "2026-05-15T11:41:34.513695"
+    },
+    {
+      "topic_id": "msme_composition",
+      "topic_label": "MSME / Composition Scheme",
+      "probability": 74.2,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 4,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.92,
+          "description": "Item deferred in 37 GST Council meeting(s) \u2014 repeated deferrals indicate imminent resolution",
+          "source_docs": [
+            "gst_council_23",
+            "gst_council_35",
+            "gst_council_19",
+            "gst_council_39",
+            "gst_council_42"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.68,
+          "description": "Budget speech (2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2016, 2015, 2014, 2013, 2012, 2009, 2003, 2001) contained action language \u2014 older signal, moderate predictive weight",
+          "source_docs": [
+            "budget_speech_2021",
+            "budget_speech_2001",
+            "budget_speech_2016",
+            "budget_speech_2020",
+            "budget_speech_2013"
+          ]
+        },
+        {
+          "type": "government_forward_signal",
+          "strength": 0.8,
+          "description": "PIB Finance Ministry release (1d ago) with imminent language on this topic \u2014 ministry-level attention typically precedes Council action within 1\u20132 meetings",
+          "source_docs": [
+            "pib_2260904"
+          ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 45 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_idtc_home_14e0d626b23f",
+            "icai_idtc_home_fbd499e4f631",
+            "icai_idtc_home_473d58246d54",
+            "icai_budget_memo_f2545bce308d"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-15T11:41:34.563797"
     },
     {
       "topic_id": "place_of_supply",
@@ -200,54 +281,7 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T09:43:27.090887"
-    },
-    {
-      "topic_id": "msme_composition",
-      "topic_label": "MSME / Composition Scheme",
-      "probability": 72.7,
-      "horizon_label": "Next GST Council meeting",
-      "horizon_days": 90,
-      "signal_count": 3,
-      "signals": [
-        {
-          "type": "council_deferred_item",
-          "strength": 0.92,
-          "description": "Item deferred in 37 GST Council meeting(s) \u2014 repeated deferrals indicate imminent resolution",
-          "source_docs": [
-            "gst_council_23",
-            "gst_council_35",
-            "gst_council_19",
-            "gst_council_39",
-            "gst_council_42"
-          ]
-        },
-        {
-          "type": "budget_speech_phrase",
-          "strength": 0.68,
-          "description": "Budget speech (2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2016, 2015, 2014, 2013, 2012, 2009, 2003, 2001) contained action language \u2014 older signal, moderate predictive weight",
-          "source_docs": [
-            "budget_speech_2021",
-            "budget_speech_2001",
-            "budget_speech_2016",
-            "budget_speech_2020",
-            "budget_speech_2013"
-          ]
-        },
-        {
-          "type": "industry_ask_repeat",
-          "strength": 0.45,
-          "description": "Repeated ask across 45 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
-          "source_docs": [
-            "icai_idtc_home_6f5686b05e1c",
-            "icai_idtc_home_14e0d626b23f",
-            "icai_idtc_home_fbd499e4f631",
-            "icai_idtc_home_473d58246d54",
-            "icai_budget_memo_f2545bce308d"
-          ]
-        }
-      ],
-      "generated_at": "2026-05-15T09:43:27.117522"
+      "generated_at": "2026-05-15T11:41:34.547291"
     },
     {
       "topic_id": "real_estate",
@@ -294,15 +328,15 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T09:43:27.154975"
+      "generated_at": "2026-05-15T11:41:34.587282"
     },
     {
       "topic_id": "itc_eligibility",
       "topic_label": "ITC Eligibility Rules",
-      "probability": 65.9,
+      "probability": 68.3,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 5,
+      "signal_count": 6,
       "signals": [
         {
           "type": "repeated_circular_topic",
@@ -338,6 +372,15 @@
           ]
         },
         {
+          "type": "government_forward_signal",
+          "strength": 0.84,
+          "description": "2 PIB Finance releases on this topic \u2014 ministry-level attention typically precedes Council action within 1\u20132 meetings",
+          "source_docs": [
+            "pib_2258734",
+            "pib_2260904"
+          ]
+        },
+        {
           "type": "industry_ask_repeat",
           "strength": 0.45,
           "description": "Repeated ask across 95 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
@@ -362,7 +405,113 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T09:43:26.848641"
+      "generated_at": "2026-05-15T11:41:34.394788"
+    },
+    {
+      "topic_id": "rcm_coverage",
+      "topic_label": "Reverse Charge Mechanism",
+      "probability": 60.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 4,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.92,
+          "description": "Item deferred in 21 GST Council meeting(s) \u2014 repeated deferrals indicate imminent resolution",
+          "source_docs": [
+            "gst_council_42",
+            "gst_council_55",
+            "gst_council_18",
+            "gst_council_34",
+            "gst_council_22"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.3,
+          "description": "Budget speech (2009) contained action language \u2014 older signal, moderate predictive weight",
+          "source_docs": [
+            "budget_speech_2009"
+          ]
+        },
+        {
+          "type": "government_forward_signal",
+          "strength": 0.8,
+          "description": "PIB Finance Ministry release (1d ago) with imminent language on this topic \u2014 ministry-level attention typically precedes Council action within 1\u20132 meetings",
+          "source_docs": [
+            "pib_2260904"
+          ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 67 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_budget_memo_8e0fdea78049",
+            "icai_idtc_home_14e0d626b23f",
+            "icai_idtc_home_ed25fdb1a188",
+            "icai_idtc_home_dc51cc7a6f86"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-15T11:41:34.429210"
+    },
+    {
+      "topic_id": "valuation",
+      "topic_label": "Valuation Rules",
+      "probability": 60.9,
+      "horizon_label": "Next GST Council meeting",
+      "horizon_days": 90,
+      "signal_count": 4,
+      "signals": [
+        {
+          "type": "council_deferred_item",
+          "strength": 0.92,
+          "description": "Item deferred in 23 GST Council meeting(s) \u2014 repeated deferrals indicate imminent resolution",
+          "source_docs": [
+            "gst_council_35",
+            "gst_council_55",
+            "gst_council_14",
+            "gst_council_43",
+            "gst_council_38"
+          ]
+        },
+        {
+          "type": "budget_speech_phrase",
+          "strength": 0.3,
+          "description": "Budget speech (2022, 2018, 2015, 2007, 2004, 2001, 2000) contained action language \u2014 older signal, moderate predictive weight",
+          "source_docs": [
+            "budget_speech_2001",
+            "budget_speech_2000",
+            "budget_speech_2007",
+            "budget_speech_2004",
+            "budget_speech_2015"
+          ]
+        },
+        {
+          "type": "government_forward_signal",
+          "strength": 0.8,
+          "description": "PIB Finance Ministry release (1d ago) with imminent language on this topic \u2014 ministry-level attention typically precedes Council action within 1\u20132 meetings",
+          "source_docs": [
+            "pib_2260904"
+          ]
+        },
+        {
+          "type": "industry_ask_repeat",
+          "strength": 0.45,
+          "description": "Repeated ask across 39 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
+          "source_docs": [
+            "icai_idtc_home_6f5686b05e1c",
+            "icai_idtc_home_dc51cc7a6f86",
+            "icai_budget_memo_913b9b7cea25",
+            "icai_idtc_home_fbd499e4f631",
+            "icai_idtc_home_33b970f98f20"
+          ]
+        }
+      ],
+      "generated_at": "2026-05-15T11:41:34.532432"
     },
     {
       "topic_id": "return_format",
@@ -407,7 +556,7 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T09:43:26.977738"
+      "generated_at": "2026-05-15T11:41:34.476528"
     },
     {
       "topic_id": "e_invoicing",
@@ -460,105 +609,15 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T09:43:27.013811"
-    },
-    {
-      "topic_id": "rcm_coverage",
-      "topic_label": "Reverse Charge Mechanism",
-      "probability": 56.1,
-      "horizon_label": "Next GST Council meeting",
-      "horizon_days": 90,
-      "signal_count": 3,
-      "signals": [
-        {
-          "type": "council_deferred_item",
-          "strength": 0.92,
-          "description": "Item deferred in 21 GST Council meeting(s) \u2014 repeated deferrals indicate imminent resolution",
-          "source_docs": [
-            "gst_council_42",
-            "gst_council_55",
-            "gst_council_18",
-            "gst_council_34",
-            "gst_council_22"
-          ]
-        },
-        {
-          "type": "budget_speech_phrase",
-          "strength": 0.3,
-          "description": "Budget speech (2009) contained action language \u2014 older signal, moderate predictive weight",
-          "source_docs": [
-            "budget_speech_2009"
-          ]
-        },
-        {
-          "type": "industry_ask_repeat",
-          "strength": 0.45,
-          "description": "Repeated ask across 67 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
-          "source_docs": [
-            "icai_idtc_home_6f5686b05e1c",
-            "icai_budget_memo_8e0fdea78049",
-            "icai_idtc_home_14e0d626b23f",
-            "icai_idtc_home_ed25fdb1a188",
-            "icai_idtc_home_dc51cc7a6f86"
-          ]
-        }
-      ],
-      "generated_at": "2026-05-15T09:43:26.902264"
-    },
-    {
-      "topic_id": "valuation",
-      "topic_label": "Valuation Rules",
-      "probability": 56.1,
-      "horizon_label": "Next GST Council meeting",
-      "horizon_days": 90,
-      "signal_count": 3,
-      "signals": [
-        {
-          "type": "council_deferred_item",
-          "strength": 0.92,
-          "description": "Item deferred in 23 GST Council meeting(s) \u2014 repeated deferrals indicate imminent resolution",
-          "source_docs": [
-            "gst_council_35",
-            "gst_council_55",
-            "gst_council_14",
-            "gst_council_43",
-            "gst_council_38"
-          ]
-        },
-        {
-          "type": "budget_speech_phrase",
-          "strength": 0.3,
-          "description": "Budget speech (2022, 2018, 2015, 2007, 2004, 2001, 2000) contained action language \u2014 older signal, moderate predictive weight",
-          "source_docs": [
-            "budget_speech_2001",
-            "budget_speech_2000",
-            "budget_speech_2007",
-            "budget_speech_2004",
-            "budget_speech_2015"
-          ]
-        },
-        {
-          "type": "industry_ask_repeat",
-          "strength": 0.45,
-          "description": "Repeated ask across 39 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
-          "source_docs": [
-            "icai_idtc_home_6f5686b05e1c",
-            "icai_idtc_home_dc51cc7a6f86",
-            "icai_budget_memo_913b9b7cea25",
-            "icai_idtc_home_fbd499e4f631",
-            "icai_idtc_home_33b970f98f20"
-          ]
-        }
-      ],
-      "generated_at": "2026-05-15T09:43:27.066971"
+      "generated_at": "2026-05-15T11:41:34.499428"
     },
     {
       "topic_id": "gst_on_crypto_vda",
       "topic_label": "VDA / Crypto Treatment",
-      "probability": 47.8,
+      "probability": 54.3,
       "horizon_label": "Next GST Council meeting",
       "horizon_days": 90,
-      "signal_count": 3,
+      "signal_count": 4,
       "signals": [
         {
           "type": "council_deferred_item",
@@ -578,6 +637,14 @@
           ]
         },
         {
+          "type": "government_forward_signal",
+          "strength": 0.8,
+          "description": "PIB Finance Ministry release (1d ago) with imminent language on this topic \u2014 ministry-level attention typically precedes Council action within 1\u20132 meetings",
+          "source_docs": [
+            "pib_2261174"
+          ]
+        },
+        {
           "type": "industry_ask_repeat",
           "strength": 0.45,
           "description": "Repeated ask across 2 industry submissions \u2014 government typically addresses persistent asks within 2\u20133 budget cycles",
@@ -587,7 +654,7 @@
           ]
         }
       ],
-      "generated_at": "2026-05-15T09:43:27.113559"
+      "generated_at": "2026-05-15T11:41:34.561324"
     }
   ]
 }

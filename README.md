@@ -31,13 +31,19 @@ See [`data/predictions/latest.json`](data/predictions/latest.json) for live pred
 | AAR rulings corpus | Judicial pressure by topic tag | Weekly |
 | Budget speech corpus (2017–present) | Language pattern before council action | Annual |
 | ICAI pre-budget memoranda | Industry ask frequency | Annual |
+| PIB Finance Ministry press releases | Government forward signal — ministry-level attention before Council action | Daily |
+
+> **PIB scraper note:** The PIB scraper uses PRID enumeration with `PRID_STEP=25` by default.
+> This covers a 90-day window in 900 requests (same CI runtime as before), but samples
+> roughly every 3rd Finance release rather than every one. For a dense historical backfill,
+> set `PRID_STEP=5` and `MAX_REQUESTS=4500` in `scrapers/sources.py` — this adds ~60 min
+> but guarantees no release is missed in the window.
 
 ## Data sources (planned — PRs welcome)
 
 - [ ] State election calendar × council vote pattern model
 - [ ] High court GST division bench orders
 - [ ] FICCI/CII GST committee submissions
-- [ ] Ministry of Finance press releases
 - [ ] Rajya Sabha / Lok Sabha GST question corpus
 - [ ] Informal: ICAI newsletter signals
 

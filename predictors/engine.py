@@ -58,7 +58,7 @@ class Prediction:
         self.probability: float = 0.0
         self.horizon_label: str = ""
         self.horizon_days: int = 0
-        self.generated_at: str = datetime.utcnow().isoformat()
+        self.generated_at: str = datetime.utcnow().isoformat() + "Z"
 
     def add_signal(self, signal: Signal):
         self.signals.append(signal)
@@ -101,6 +101,18 @@ class Prediction:
         if "council_deferred_item" in sig_types:
             self.horizon_days = 90
             self.horizon_label = "Next GST Council meeting"
+        elif "government_forward_signal" in sig_types:
+            # PIB signals are more proximate than budget language
+            min_horizon = min(
+                s.horizon_days for s in self.signals
+                if s.signal_type == "government_forward_signal"
+            )
+            self.horizon_days = min_horizon
+            self.horizon_label = (
+                "Next GST Council meeting"
+                if min_horizon <= 90
+                else "Next Union Budget / 2 Council meetings"
+            )
         elif "budget_speech_phrase" in sig_types:
             self.horizon_days = 180
             self.horizon_label = "Next Union Budget / 2 Council meetings"
@@ -349,6 +361,111 @@ class PredictionEngine:
             horizon_days=180,
         )
 
+    def evaluate_government_forward_signal(
+        self, docs: list[dict], topic_id: str
+    ) -> Optional[Signal]:
+        """
+        Signal: Finance Ministry (PIB) press release touches a GST topic
+        with forward-looking action language.
+
+        PIB releases are immediate ministry communications — a mention of
+        "rationalise", "review", or "exempt" here is more proximate to
+        policy action than the same phrase buried in a budget speech.
+        Strength decays with age: a 30-day-old PIB mention is far more
+        predictive than a 90-day-old one.
+        """
+        relevant = [
+            d for d in docs
+            if d.get("source_id") == "pib_finance"
+            and topic_id in (d.get("topic_tags") or [])
+        ]
+        if not relevant:
+            return None
+
+        action_phrases = [
+            "rationalise", "rationalize", "streamline", "simplify",
+            "review", "examine", "consider", "study",
+            "exempt", "relief", "reduce", "waive",
+            "mandate", "expand", "extend", "include",
+            "clarif", "address", "resolve",
+            "to be notified", "will be issued", "shortly", "proposed",
+            "working group", "committee", "task force",
+        ]
+        imminent_phrases = [
+            "to be notified", "will be issued", "shortly", "proposed",
+            "with effect from", "effective from",
+        ]
+
+        # Score each doc by recency and action language presence
+        best_strength = 0.0
+        best_description = ""
+        actionable_docs = []
+        today = datetime.utcnow()
+
+        for d in relevant:
+            content = ((d.get("title") or "") + " " + (d.get("content") or "")).lower()
+            has_action = any(p in content for p in action_phrases)
+            if not has_action:
+                continue
+
+            # Recency decay: ≤30 days → full weight, ≤60 → 0.75, ≤90 → 0.55, older → 0.40
+            age_days = 999
+            date_str = d.get("date")
+            if date_str:
+                try:
+                    doc_date = datetime.fromisoformat(date_str.replace("Z", "+00:00").split("+")[0])
+                    age_days = (today - doc_date).days
+                except (ValueError, TypeError):
+                    pass
+
+            if age_days <= 30:
+                base = 0.65
+            elif age_days <= 60:
+                base = 0.52
+            elif age_days <= 90:
+                base = 0.42
+            else:
+                base = 0.32
+
+            # Imminent language bumps strength
+            has_imminent = any(p in content for p in imminent_phrases)
+            strength = min(base + (0.15 if has_imminent else 0.0), 0.88)
+
+            if strength > best_strength:
+                best_strength = strength
+                recency_tag = f"{age_days}d ago" if age_days < 999 else "unknown date"
+                imminent_note = " with imminent language" if has_imminent else ""
+                best_description = (
+                    f"PIB Finance Ministry release ({recency_tag}){imminent_note} "
+                    f"on this topic — ministry-level attention typically precedes "
+                    f"Council action within 1–2 meetings"
+                )
+
+            actionable_docs.append(d)
+
+        if not actionable_docs:
+            return None
+
+        # Multiple mentions bump strength slightly (diminishing, capped)
+        if len(actionable_docs) > 1:
+            best_strength = min(best_strength + (len(actionable_docs) - 1) * 0.04, 0.88)
+            best_description = (
+                f"{len(actionable_docs)} PIB Finance releases on this topic — "
+                + best_description.split("—", 1)[-1].strip()
+            )
+
+        # Horizon: imminent language → next meeting (90d), else 2 meetings (180d)
+        horizon = 90 if "imminent language" in best_description else 180
+
+        return Signal(
+            signal_type="government_forward_signal",
+            topic_id=topic_id,
+            strength=round(best_strength, 2),
+            description=best_description,
+            source_docs=[d["doc_id"] for d in actionable_docs[-5:]],
+            horizon_days=horizon,
+        )
+
     def evaluate_industry_ask_repeat(
         self, docs: list[dict], topic_id: str
     ) -> Optional[Signal]:
@@ -387,6 +504,7 @@ class PredictionEngine:
             self.evaluate_council_deferred_item,
             self.evaluate_aar_ruling_frequency,
             self.evaluate_budget_speech_phrase,
+            self.evaluate_government_forward_signal,
             self.evaluate_industry_ask_repeat,
             self.evaluate_judicial_split,
         ]
@@ -414,7 +532,7 @@ class PredictionEngine:
         predictions.sort(key=lambda p: -p.probability)
 
         output = {
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.utcnow().isoformat() + "Z",
             "doc_count": len(docs),
             "prediction_count": len(predictions),
             "predictions": [p.to_dict() for p in predictions],

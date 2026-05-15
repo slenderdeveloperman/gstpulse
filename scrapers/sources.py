@@ -576,10 +576,21 @@ class PIBFinanceScraper(BaseScraper):
         2093698,   # Jan 17, 2025 — finance-adjacent (budget/economy)
     ]
 
-    # How many PRIDs to enumerate backwards from current anchor
-    LOOKBACK_PRIDS = 4500   # 90 days × 250 PRIDs/day = 22500; step 5 → 4500 checks
+    # How many PRIDs to enumerate backwards from current anchor.
+    # 90 days × ~250 PRIDs/day = ~22500 PRIDs of range.
+    # With PRID_STEP=25: 22500/25 = 900 candidates → exactly fills MAX_REQUESTS.
+    LOOKBACK_PRIDS = 900    # steps to walk back (× PRID_STEP = PRID range covered)
 
-    PRID_STEP = 5   # sample every Nth PRID — Finance English ≈ 2-3 per 250 PRIDs
+    # TRADEOFF — step size vs. coverage:
+    #   step=5  → dense sampling, hits ~every Finance release, but MAX_REQUESTS=900
+    #             only covers 900×5=4500 PRIDs ≈ 18 days. Good for recency; bad for
+    #             historical signal breadth needed by the evaluator.
+    #   step=25 → coarse sampling, hits ~1-in-3 Finance releases per day, but
+    #             900×25=22500 PRIDs ≈ 90 days. Enough temporal reach for the
+    #             government_forward_signal evaluator without increasing runtime.
+    #   step=5 + MAX_REQUESTS=4500 → full 90-day dense coverage, but adds ~60 min
+    #             to CI runtime. Use this for one-off historical backfills.
+    PRID_STEP = 25  # coarse/wide — default for daily CI runs
 
     # Max requests per run — prevents runaway scraping
     MAX_REQUESTS = 900

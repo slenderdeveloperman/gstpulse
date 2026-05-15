@@ -113,7 +113,7 @@ def main():
 
     print("=" * 60, flush=True)
     print("PIB Finance scraper", flush=True)
-    print("Strategy: RSS anchor → PRID enumeration (step 5, last 90 days)", flush=True)
+    print("Strategy: RSS anchor → PRID enumeration (step 25, last 90 days)", flush=True)
     print(f"Embed: {'SKIPPED (--skip-embed)' if args.skip_embed else 'ENABLED'}", flush=True)
     print("=" * 60, flush=True)
     mem_log("initial")

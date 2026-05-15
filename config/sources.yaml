@@ -108,6 +108,15 @@ sources:
     weight: 0.10
     active: true
 
+  pib_finance:
+    name: PIB Finance Ministry Press Releases
+    url: https://pib.gov.in/allRel.aspx?mincode=47
+    type: pib_scraper
+    signal_type: government_forward_signal
+    update_schedule: daily
+    weight: 0.20
+    active: true
+
   # PLANNED SOURCES — not yet active
   high_court_orders:
     name: High Court GST Orders
@@ -175,3 +184,4 @@ prediction:
     budget_speech_phrase: 0.35         # specific language in budget speech
     industry_ask_repeat: 0.15          # same ask in 2+ consecutive memoranda
     judicial_split: 0.25              # conflicting HC rulings → clarification likely
+    government_forward_signal: 0.20   # PIB Finance release with action language on topic

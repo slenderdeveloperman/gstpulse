@@ -84,7 +84,7 @@ function fmtDelta(d) { return d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${Math.abs(d)}` 
 function computeSunTimes(lat, lng) {
   const DEG = Math.PI / 180;
   const JD = Date.now() / 86400000 + 2440587.5;
-  const n  = Math.round(JD - 2451545.0 - 0.0009 - lng / 360);
+  const n  = Math.round(JD - 2451545.0 - 0.0009 + lng / 360); // +lng: East-positive convention matches geolocation API
   const J_noon = 2451545.0 + 0.0009 + lng / 360 + n;
   const M_deg  = (357.5291 + 0.98560028 * (J_noon - 2451545)) % 360;
   const M      = M_deg * DEG;
@@ -1006,6 +1006,9 @@ function App() {
       })
       .catch(() => {});
   }, []);
+
+  // Sync body background so iOS scroll-bounce and mobile safe areas don't bleed dark in light mode
+  React.useEffect(() => { document.body.style.background = GST_THEME[dark?'dark':'light'].bg; }, [dark]);
 
   const tweak = { dark, density };
   const predictions = livePredictions || GST_PREDICTIONS;
