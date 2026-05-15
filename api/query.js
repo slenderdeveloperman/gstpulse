@@ -144,10 +144,10 @@ export default async function handler(request) {
     // ── Embed query via Supabase edge function ─────────────────────────────────
     let embedding;
     try {
-      const embedRes = await fetch(`${cleanEnv(process.env.SUPABASE_URL)}/functions/v1/embed`, {
+      const embedRes = await fetch(`${supabaseUrl}/functions/v1/embed`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${cleanEnv(process.env.SUPABASE_ANON_KEY)}`,
+          'Authorization': `Bearer ${supabaseKey}`,
           'Content-Type': 'application/json',
           'X-Embed-Secret': cleanEnv(process.env.EMBED_SECRET),
         },
@@ -160,7 +160,7 @@ export default async function handler(request) {
       ({ embedding } = await embedRes.json());
     } catch (e) {
       console.error('[embed]', e.message);
-      return r({ error: 'embed_error', message: 'Failed to embed query.', _debug: e.message }, 502);
+      return r({ error: 'embed_error', message: 'Failed to embed query.' }, 502);
     }
 
     // ── Vector search ──────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ export default async function handler(request) {
       chunks = await searchRes.json();
     } catch (e) {
       console.error('[match_chunks]', e.message);
-      return r({ error: 'search_error', message: 'Vector search unavailable.', _debug: e.message }, 502);
+      return r({ error: 'search_error', message: 'Vector search unavailable.' }, 502);
     }
     if (!chunks?.length) {
       return r({ error: 'no_context', message: 'No relevant documents found for this query.' }, 200);
@@ -190,7 +190,7 @@ export default async function handler(request) {
       sarvamRes = await fetch('https://api.sarvam.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'api-subscription-key': process.env.SARVAM_API_KEY,
+          'api-subscription-key': cleanEnv(process.env.SARVAM_API_KEY),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
