@@ -122,24 +122,25 @@ Programmatic access to the predictions feed and query endpoint. Targeted at fint
 │      ├── PDF downloader + pdfplumber extractor              │
 │      ├── Chunker (800 token chunks, 100 token overlap)      │
 │      ├── Tagger (regex first pass)                          │
-│      ├── Embedder (Sarvam embed-v1 or sentence-transformers)│
-│      ├── Vector store writer (ChromaDB flat file)           │
+│      ├── Embedder (sentence-transformers all-MiniLM-L6-v2) │
+│      ├── Vector store writer (Supabase pgvector)            │
 │      └── Prediction engine → latest.json                   │
-│          └── git commit + push → GitHub Pages deploys       │
+│          └── git commit + push → Vercel deploys             │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│  GitHub Pages (static hosting)                              │
+│  Vercel (static hosting + edge function)                    │
 │  ├── index.html (dashboard + query UI)                      │
-│  └── data/predictions/latest.json                           │
+│  ├── data/predictions/latest.json                           │
+│  └── api/query.js (Vercel edge runtime)                     │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│  Cloudflare Worker (query API endpoint)                     │
-│  ├── Receives query from dashboard fetch()                  │
-│  ├── Embeds query → vector search against ChromaDB export  │
-│  ├── Retrieves top-k chunks                                 │
-│  └── Calls Sarvam API → returns structured response        │
+│  Supabase (vector search + embedding + rate limiting)       │
+│  ├── pgvector — chunks table with 384-dim embeddings        │
+│  ├── match_chunks RPC — similarity search (SECURITY DEFINER)│
+│  ├── embed edge function — query-time embedding             │
+│  └── check_and_increment_usage RPC — per-IP rate limiting   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -174,38 +175,40 @@ Programmatic access to the predictions feed and query endpoint. Targeted at fint
 - GitHub Actions commits updated latest.json and ChromaDB export
 - GitHub Pages auto-deploys on push
 
-### 5.3 Query Flow (Cloudflare Worker)
+### 5.3 Query Flow (Vercel edge function)
 
 ```
 User types query in dashboard
     ↓
-fetch() POST to Cloudflare Worker endpoint
+fetch() POST to api/query.js (Vercel edge runtime)
     ↓
-Worker: embed query using same model as corpus
+Edge function: sanitize query, check IP rate limit via Supabase RPC
     ↓
-Worker: similarity search against ChromaDB export (loaded into Worker KV)
+Edge function: call Supabase embed function → 384-dim vector
     ↓
-Worker: retrieve top 8 chunks + their metadata
+Edge function: call match_chunks RPC → top 8 chunks by cosine similarity
     ↓
-Worker: build prompt for Sarvam API
+Edge function: build prompt with XML delimiters + retrieved chunks
     ↓
-Sarvam: generate structured foresight response
+Sarvam-M: generate structured foresight response
     ↓
-Worker: return JSON response to dashboard
+Edge function: return JSON response to dashboard
     ↓
-Dashboard: render response in query panel
+Dashboard: render response in ScreenQueryResponse
 ```
 
 ### 5.4 Rate Limiting (free tier enforcement)
-- 5 free queries tracked via localStorage (no backend needed for soft limit)
-- Hard limit enforced at Cloudflare Worker level via IP-based rate limiting (Workers built-in)
+- 5 free queries/month tracked via localStorage (soft limit, no backend needed)
+- Hard limit enforced at Supabase via `check_and_increment_usage(ip, max_per_day)` RPC
+  — uses `SELECT FOR UPDATE` to prevent TOCTOU race condition under concurrent requests
 - No auth required for free tier — friction-free
 
 ### 5.5 Vector Store Strategy
-- ChromaDB persistent client writes to `data/vectors/` directory
-- Total estimated size: ~30 MB for full corpus
-- Committed to GitHub repo (under the 100MB file limit)
-- Cloudflare Worker loads vector export from KV store (updated on each GitHub Actions run via Cloudflare API)
+- Supabase pgvector — `chunks` table with `embedding vector(384)` column
+- `match_chunks` RPC uses `SECURITY DEFINER` so anon key can call it but cannot
+  read the table directly via REST (blocks corpus extraction via `/rest/v1/chunks?select=*`)
+- Ingest pipeline writes via `SUPABASE_SERVICE_KEY` (local `.env` only, never on Vercel)
+- Query-time embedding via Supabase `embed` edge function (requires `X-Embed-Secret` header)
 
 ---
 
@@ -282,13 +285,20 @@ Tasks:
 **Goal**: Users can ask specific questions and get grounded foresight responses.
 
 Tasks:
-- [ ] Build Cloudflare Worker (`workers/query.js`)
-- [ ] Integrate Sarvam API into Worker (key stored in Worker secrets)
-- [ ] Add query UI panel to `index.html`
-- [ ] Implement localStorage-based free query counter (5/month)
+- [x] Build Vercel edge function (`api/query.js`) with sanitization, CORS allowlist, 8KB body guard
+- [x] Integrate Sarvam-M API for answer generation (key in Vercel env)
+- [x] Supabase `match_chunks` RPC — pgvector similarity search, SECURITY DEFINER
+- [x] Supabase `embed` edge function — query-time embedding, EMBED_SECRET required
+- [x] Supabase `check_and_increment_usage` RPC — per-IP rate limiting, TOCTOU-safe
+- [x] Add query UI panel to `index.html` (ScreenQueryResponse component)
+- [x] Implement localStorage-based free query counter (5/month soft limit)
 - [ ] Add Sarvam semantic tagging pass for council minutes and Hindi docs
 - [ ] Test with 20 representative CA queries
-- [ ] Deploy Worker, wire up dashboard fetch()
+- [ ] Wire `onViewAlert` to active prediction (currently always opens predictions[0])
+- [ ] Wire single-click ↗ → ScreenPredictionDetail (double-click works, single-click only sets activeId)
+- [ ] Rotate EMBED_SECRET (current value appeared in plain text in a prior session)
+- [ ] Run `tests/test_security.js` against live Vercel URL to confirm all hardening is deployed
+- [ ] Confirm end-to-end ingest → latest.json → live predictions flow on deployed site
 
 **Exit criteria**: Query model returns accurate, grounded responses on 85%+ of test queries.
 
@@ -329,7 +339,7 @@ Tasks:
 |---|---|---|
 | Sarvam API key — personal account or org account? | Before Phase 2 | Yashu |
 | ChromaDB vs FAISS for vector store | Before Phase 1 | Engineering |
-| Cloudflare Workers free tier sufficient? (100K req/day) | Before Phase 2 | Engineering |
+| Vercel edge function + Supabase free tier limits sufficient? | Before Phase 3 | Engineering |
 | Razorpay vs Stripe for payments? | Before Phase 3 | Yashu |
 | Hindi-language sources — priority vs. English-only first? | Before Phase 1 | Yashu |
 | Domain name — gstforesight.in ✓ decided | Closed | Yashu |
