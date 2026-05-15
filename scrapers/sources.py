@@ -9,6 +9,7 @@ which predicts what topics will need clarification again.
 import re
 from datetime import datetime
 from urllib.parse import urljoin
+from bs4 import BeautifulSoup
 from scrapers.base import BaseScraper, Document
 
 
@@ -554,110 +555,193 @@ class PIBFinanceScraper(BaseScraper):
     """
     Scrapes Finance Ministry press releases from PIB (Press Information Bureau).
 
-    Signal: PIB releases are issued immediately after GST Council decisions,
-    budget announcements, and CBIC enforcement actions. The language used in
-    these releases — especially hedged phrases like 'under consideration' or
-    'a committee has been constituted' — consistently precede formal circulars
-    by 30-90 days. This is the government's own forward signalling channel.
+    Signal: PIB releases carry government forward-signalling language — phrases
+    like 'under consideration', 'committee constituted', 'matter being examined'
+    consistently precede formal CBIC circulars by 30-90 days.
+
+    PIB's listing pages are JavaScript-rendered (ASP.NET UpdatePanel). Static
+    HTML fetches only return navigation shell. Strategy: use RSS seeds for
+    latest PRID anchor, then enumerate backwards with step-50 sampling over the
+    last 90 days. Finance GST releases appear roughly 1-2 per 250 PRIDs.
     """
     source_id = "pib_finance"
-    # Ministry ID 47 = Finance; Regid 3 = English
-    LISTING_URL = "https://pib.gov.in/allRel.aspx"
-    # PIB also has a dedicated GST search
-    GST_SEARCH_URL = "https://pib.gov.in/indexd.aspx"
 
-    # Filter terms — only Finance/CBIC/GST-relevant releases
+    RSS_URL = "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=3&Regid=3"
+    PR_BASE = "https://pib.gov.in/PressReleasePage.aspx?PRID={prid}"
+
+    # Known Finance/GST PRIDs — add more as you find them manually.
+    # These seed the enumerator so we always cover key council meeting dates.
+    SEED_PRIDS: list[int] = [
+        2086770,   # Dec 21, 2024 — Finance Ministry (NPS; same-day GST council)
+        2093698,   # Jan 17, 2025 — finance-adjacent (budget/economy)
+    ]
+
+    # How many PRIDs to enumerate backwards from current anchor
+    LOOKBACK_PRIDS = 4500   # 90 days × 250 PRIDs/day = 22500; step 5 → 4500 checks
+
+    PRID_STEP = 5   # sample every Nth PRID — Finance English ≈ 2-3 per 250 PRIDs
+
+    # Max requests per run — prevents runaway scraping
+    MAX_REQUESTS = 900
+
     RELEVANT_TERMS = {
-        "gst", "goods and services tax", "cbic", "customs", "indirect tax",
+        "gst", "goods and services tax", "cbic", "indirect tax",
         "input tax credit", "itc", "gst council", "finance minister",
         "tax rate", "exemption", "e-invoice", "e-way bill", "refund",
+        "goods and service", "department of revenue",
+    }
+
+    MINISTRY_TERMS = {
+        "ministry of finance", "department of revenue", "cbic",
+        "central board of indirect", "department of financial services",
     }
 
     def scrape(self) -> list[Document]:
         docs = []
-        try:
-            soup = self.fetch_html(self.LISTING_URL)
+        seen_prids: set[int] = set()
 
-            # PIB listing page has press release links in content area
-            for link in soup.find_all("a", href=True):
-                href = link["href"]
-                text = link.get_text(strip=True)
+        # ── Step 1: Get anchor PRID from RSS ────────────────────────────────
+        print("[pib_finance] fetching RSS to get latest PRID anchor...", flush=True)
+        latest_prid = self._get_latest_prid_from_rss()
+        if latest_prid:
+            print(f"[pib_finance] RSS anchor PRID: {latest_prid}", flush=True)
+        else:
+            # Fallback: use a known recent PRID
+            latest_prid = max(self.SEED_PRIDS) + 170_000  # rough 2-year offset
+            print(f"[pib_finance] RSS failed — using fallback anchor PRID: {latest_prid}", flush=True)
 
-                # Only follow PIB press release page links
-                if "PressReleasePage.aspx" not in href and "pressreleaseshare.aspx" not in href.lower():
-                    continue
-                if not text or len(text) < 10:
-                    continue
+        # ── Step 2: Build PRID candidate list ───────────────────────────────
+        # (a) Seed PRIDs first (always check these)
+        candidates = list(self.SEED_PRIDS)
 
-                # Pre-filter by title relevance before fetching full page
-                if not self._is_relevant(text):
-                    continue
+        # (b) Enumerate backwards from anchor with step
+        start = latest_prid
+        end = latest_prid - self.LOOKBACK_PRIDS * self.PRID_STEP
+        step_candidates = list(range(start, max(end, 0), -self.PRID_STEP))
+        candidates.extend(step_candidates)
 
-                full_url = href if href.startswith("http") else urljoin(self.LISTING_URL, href)
-                try:
-                    self._validate_url(full_url)
-                except ValueError:
-                    continue
+        # Deduplicate
+        candidates = sorted(set(candidates), reverse=True)[:self.MAX_REQUESTS]
+        print(f"[pib_finance] will check {len(candidates)} PRIDs "
+              f"(from {candidates[0]} to {candidates[-1]})", flush=True)
 
-                doc_id = f"pib_{Document.content_hash(href)}"
+        # ── Step 3: Fetch and filter each candidate ─────────────────────────
+        checked = 0
+        for prid in candidates:
+            if prid in seen_prids:
+                continue
+            seen_prids.add(prid)
 
-                # Fetch full press release text
-                full_text = None
-                date = None
-                try:
-                    rel_soup = self.fetch_html(full_url)
-                    # PIB release body is in .innner-page-content or similar
-                    body = rel_soup.select_one(
-                        ".innner-page-content, .press_heading, #ContentPlaceHolder1_lblPRContent, .release-content"
-                    )
-                    if body:
-                        full_text = body.get_text(separator="\n", strip=True)
+            doc_id = f"pib_{prid}"
+            if self.doc_cached(doc_id):
+                print(f"[pib_finance] PRID {prid}: cached, skip", flush=True)
+                checked += 1
+                continue
 
-                    # Extract date from the release page
-                    date_tag = rel_soup.select_one(".date, .pib-date, time, [class*='date']")
-                    if date_tag:
-                        date = self._parse_pib_date(date_tag.get_text(strip=True))
-                except Exception:
-                    pass
+            url = self.PR_BASE.format(prid=prid)
+            try:
+                self._validate_url(url)
+            except ValueError:
+                continue
 
-                docs.append(Document(
-                    source_id=self.source_id,
-                    doc_id=doc_id,
-                    title=text,
-                    url=full_url,
-                    date=date,
-                    content=full_text or text,
-                    metadata={
-                        "full_text_extracted": full_text is not None,
-                    },
-                ))
+            checked += 1
+            if checked % 100 == 0:
+                print(f"[pib_finance] progress: {checked}/{len(candidates)} checked, "
+                      f"{len(docs)} collected so far", flush=True)
 
-        except Exception as e:
-            print(f"[pib_finance] scrape error: {e}")
+            text, date, title = self._fetch_pr(url)
+            if not text:
+                continue
 
-        print(f"[pib_finance] collected {len(docs)} relevant releases")
+            # Must be English Finance/GST content
+            if not self._is_finance(text):
+                continue
+            if not self._is_relevant(text):
+                continue
+
+            print(f"[pib_finance] ✓ PRID {prid} ({date}): {title[:70]}", flush=True)
+            docs.append(Document(
+                source_id=self.source_id,
+                doc_id=doc_id,
+                title=title or f"PIB Finance Release {prid}",
+                url=url,
+                date=date,
+                content=text,
+                metadata={"prid": prid, "full_text_extracted": True},
+            ))
+
+        print(f"[pib_finance] done — checked {checked} PRIDs, "
+              f"collected {len(docs)} Finance/GST releases", flush=True)
         return docs
+
+    def _get_latest_prid_from_rss(self) -> Optional[int]:
+        """Extract the highest PRID from the PIB RSS feed."""
+        try:
+            from xml.etree import ElementTree as ET
+            r = self.client.get(self.RSS_URL, timeout=15)
+            r.raise_for_status()
+            root = ET.fromstring(r.content)
+            prids = []
+            for item in root.findall(".//item"):
+                link_el = item.find("link")
+                if link_el is not None and link_el.text:
+                    m = re.search(r"PRID=(\d+)", link_el.text)
+                    if m:
+                        prids.append(int(m.group(1)))
+            return max(prids) if prids else None
+        except Exception as e:
+            print(f"[pib_finance] RSS fetch failed: {e}", flush=True)
+            return None
+
+    def _fetch_pr(self, url: str) -> tuple[str, Optional[datetime], str]:
+        """Fetch a press release and return (content, date, title)."""
+        try:
+            r = self.client.get(url, timeout=15)
+            r.raise_for_status()
+            soup = BeautifulSoup(r.text, "html.parser")
+            el = soup.select_one(".innner-page-main-about-us-content-right-part, [class*='content']")
+            if not el:
+                return "", None, ""
+            text = el.get_text(strip=True)
+            if len(text) < 100:
+                return "", None, ""
+
+            # Extract date from "Posted On: DD MON YYYY" embedded in content
+            date = None
+            dm = re.search(r"Posted On:\s*(\d{1,2} \w+ \d{4})", text)
+            if dm:
+                date = self._parse_pib_date(dm.group(1))
+
+            # Extract title: first line before "Posted On"
+            title = text.split("Posted On")[0].strip()[:200] if "Posted On" in text else text[:100]
+            return text, date, title
+        except Exception:
+            return "", None, ""
+
+    def _is_finance(self, text: str) -> bool:
+        """True if the release is from Finance Ministry / CBIC (English)."""
+        lower = text.lower()
+        # Must have Finance ministry markers AND be in English (ASCII-heavy)
+        ascii_ratio = sum(1 for c in text[:100] if ord(c) < 128) / max(len(text[:100]), 1)
+        return ascii_ratio > 0.7 and any(term in lower for term in self.MINISTRY_TERMS)
 
     def _is_relevant(self, text: str) -> bool:
         lower = text.lower()
         return any(term in lower for term in self.RELEVANT_TERMS)
 
-    def _parse_pib_date(self, text: str) -> datetime | None:
+    def _parse_pib_date(self, text: str) -> Optional[datetime]:
         text = text.strip()
-        for fmt in ("%d %B, %Y", "%B %d, %Y", "%d-%m-%Y", "%d/%m/%Y",
-                    "%d %b %Y", "%d %B %Y"):
+        for fmt in ("%d %B %Y", "%d %b %Y", "%d %B, %Y", "%B %d, %Y",
+                    "%d-%m-%Y", "%d/%m/%Y"):
             try:
                 return datetime.strptime(text, fmt)
             except ValueError:
                 continue
-        # Try extracting just the date part
-        match = re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})", text)
-        if match:
-            try:
-                return datetime.strptime(match.group(0), "%d %B %Y")
-            except ValueError:
+        m = re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})", text)
+        if m:
+            for fmt in ("%d %B %Y", "%d %b %Y"):
                 try:
-                    return datetime.strptime(match.group(0), "%d %b %Y")
+                    return datetime.strptime(m.group(0), fmt)
                 except ValueError:
                     pass
         return None
