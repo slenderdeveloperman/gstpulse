@@ -991,11 +991,13 @@ function App() {
   const goQuery = (ctx) => { setQueryContext(ctx); setScreen('query'); };
   const toggleDark = () => { manualOverride.current = true; setDark(d => !d); };
 
-  if (screen === 'query') return <ScreenQueryResponse tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} response={queryContext?.response} query={queryContext?.query}/>;
-  if (screen === 'prediction') return <ScreenPredictionDetail tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} onViewAlert={() => goAlert(activePrediction)} prediction={activePrediction}/>;
-  if (screen === 'source') return <ScreenSourceDoc tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')}/>;
-  if (screen === 'alert') return <ScreenAlertSetup tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} prediction={activePrediction}/>;
-  if (screen === 'pricing') return <ScreenPricing tweak={tweak} onBack={goBack}/>;
+  const shell = (child) => <div style={{ width:'100vw', height:'100vh', background:T.bg }}>{child}</div>;
+
+  if (screen === 'query') return shell(<ScreenQueryResponse tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} response={queryContext?.response} query={queryContext?.query}/>);
+  if (screen === 'prediction') return shell(<ScreenPredictionDetail tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} onViewAlert={() => goAlert(activePrediction)} prediction={activePrediction}/>);
+  if (screen === 'source') return shell(<ScreenSourceDoc tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')}/>);
+  if (screen === 'alert') return shell(<ScreenAlertSetup tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} prediction={activePrediction}/>);
+  if (screen === 'pricing') return shell(<ScreenPricing tweak={tweak} onBack={goBack}/>);
 
   return (
     <div style={{ width:'100vw', height:'100vh', background:T.bg }}>
