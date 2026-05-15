@@ -32,6 +32,10 @@ function json(body, status = 200, request = null) {
 
 const MAX_BODY_BYTES = 8 * 1024; // 8 KB
 
+// Strip any non-printable ASCII that would make Fetch throw "Invalid header value."
+// Handles both trailing newlines AND mid-value \r\n from multi-line Vercel dashboard pastes.
+const cleanEnv = v => (v ?? '').replace(/[^\x20-\x7E]/g, '');
+
 function sanitizeQuery(raw) {
   return raw
     .trim()
@@ -112,8 +116,8 @@ export default async function handler(request) {
     const cleanQuery = sanitizeQuery(query);
 
     const supabase = createClient(
-      (process.env.SUPABASE_URL ?? '').trim(),
-      (process.env.SUPABASE_ANON_KEY ?? '').trim(),
+      cleanEnv(process.env.SUPABASE_URL),
+      cleanEnv(process.env.SUPABASE_ANON_KEY),
       { auth: { persistSession: false } },
     );
 
@@ -134,13 +138,12 @@ export default async function handler(request) {
     // ── Embed query via Supabase edge function ─────────────────────────────────
     let embedding;
     try {
-      const embedRes = await fetch(`${(process.env.SUPABASE_URL ?? '').trim()}/functions/v1/embed`, {
+      const embedRes = await fetch(`${cleanEnv(process.env.SUPABASE_URL)}/functions/v1/embed`, {
         method: 'POST',
         headers: {
-          // .trim() guards against trailing newlines from copy-pasted secrets in Vercel env vars
-          'Authorization': `Bearer ${(process.env.SUPABASE_ANON_KEY ?? '').trim()}`,
+          'Authorization': `Bearer ${cleanEnv(process.env.SUPABASE_ANON_KEY)}`,
           'Content-Type': 'application/json',
-          'X-Embed-Secret': (process.env.EMBED_SECRET ?? '').trim(),
+          'X-Embed-Secret': cleanEnv(process.env.EMBED_SECRET),
         },
         body: JSON.stringify({ text: cleanQuery }),
       });
