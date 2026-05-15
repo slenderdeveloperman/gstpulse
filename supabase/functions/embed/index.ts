@@ -46,16 +46,23 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Shared-secret gate — prevents abuse by callers who know the public anon key
+  // Shared-secret gate — required, not optional.
+  // EMBED_SECRET must be set in Supabase → Functions → embed → Secrets.
+  // If missing, return 503 so misconfiguration is loud rather than silently open.
   const embedSecret = Deno.env.get("EMBED_SECRET");
-  if (embedSecret) {
-    const provided = req.headers.get("x-embed-secret");
-    if (provided !== embedSecret) {
-      return Response.json(
-        { error: "unauthorized" },
-        { status: 401, headers: CORS_HEADERS },
-      );
-    }
+  if (!embedSecret) {
+    console.error("[embed] EMBED_SECRET is not configured — refusing all requests");
+    return Response.json(
+      { error: "service_misconfigured" },
+      { status: 503, headers: CORS_HEADERS },
+    );
+  }
+  const provided = req.headers.get("x-embed-secret");
+  if (!provided || provided !== embedSecret) {
+    return Response.json(
+      { error: "unauthorized" },
+      { status: 401, headers: CORS_HEADERS },
+    );
   }
 
   // Parse body
@@ -91,7 +98,7 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     console.error("[embed] model error:", e);
     return Response.json(
-      { error: "embed_failed", detail: String(e) },
+      { error: "embed_failed" },
       { status: 502, headers: CORS_HEADERS },
     );
   }

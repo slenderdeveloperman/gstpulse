@@ -53,8 +53,12 @@ class Embedder:
         self._supabase_url = os.environ.get("SUPABASE_URL") or cfg.get("SUPABASE_URL", "")
         self._service_key = os.environ.get("SUPABASE_SERVICE_KEY") or cfg.get("SUPABASE_SERVICE_KEY", "")
 
+        embed_secret = os.environ.get("EMBED_SECRET") or cfg.get("EMBED_SECRET", "")
+
         if not self._supabase_url or not self._service_key:
             raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in .env")
+        if not embed_secret:
+            raise RuntimeError("EMBED_SECRET must be set in .env — the embed function now requires it")
 
         self._rest_url = f"{self._supabase_url}/rest/v1/chunks"
         self._embed_url = f"{self._supabase_url}/functions/v1/embed"  # used only by query()
@@ -66,12 +70,11 @@ class Embedder:
             "Content-Type": "application/json",
             "Prefer": "resolution=merge-duplicates",
         }
-        # embed_headers kept for query() — Python CLI search only
-        embed_secret = os.environ.get("EMBED_SECRET") or cfg.get("EMBED_SECRET", "")
+        # embed_headers used by query() — Python CLI search only
         self._embed_headers = {
             "Authorization": f"Bearer {self._service_key}",
             "Content-Type": "application/json",
-            **({"X-Embed-Secret": embed_secret} if embed_secret else {}),
+            "X-Embed-Secret": embed_secret,
         }
         print("[embedder] ready — ingest via local sentence-transformers, REST upsert to Supabase", flush=True)
 

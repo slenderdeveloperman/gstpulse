@@ -40,8 +40,9 @@ create table if not exists usage (
 -- Returns top-k chunks ordered by cosine similarity.
 
 create or replace function match_chunks (
-  query_embedding vector(384),
-  match_count     int default 8
+  query_embedding  vector(384),
+  match_count      int     default 8,
+  match_threshold  float   default 0.3
 )
 returns table (
   id          text,
@@ -53,6 +54,8 @@ returns table (
   similarity  float
 )
 language sql stable
+security definer
+set search_path = public, extensions
 as $$
   select
     id,
@@ -63,6 +66,7 @@ as $$
     content,
     1 - (embedding <=> query_embedding) as similarity
   from chunks
+  where 1 - (embedding <=> query_embedding) >= match_threshold
   order by embedding <=> query_embedding
   limit match_count;
 $$;
@@ -88,39 +92,61 @@ set search_path = public
 as $$
 declare
   rec        usage%rowtype;
-  remaining  int;
 begin
-  -- Upsert row, reset window if expired
+  -- Ensure the row exists before we lock it.
+  -- ON CONFLICT DO NOTHING means only the first concurrent INSERT wins;
+  -- all others skip silently, then proceed to the SELECT FOR UPDATE below.
   insert into usage (ip, query_count, reset_at)
   values (client_ip, 0, now() + interval '30 days')
-  on conflict (ip) do update
-    set query_count = case
-          when usage.reset_at < now() then 0
-          else usage.query_count
-        end,
-        reset_at = case
-          when usage.reset_at < now() then now() + interval '30 days'
-          else usage.reset_at
-        end;
+  on conflict (ip) do nothing;
 
-  select * into rec from usage where ip = client_ip;
+  -- Row-level lock: the second of two concurrent requests blocks here
+  -- until the first commits, so only one request at a time executes the
+  -- check-and-increment logic. This closes the TOCTOU race completely.
+  select * into rec from usage where ip = client_ip for update;
 
-  if rec.query_count >= free_limit then
-    return json_build_object('allowed', false, 'remaining', 0, 'reset_at', rec.reset_at);
+  -- Reset window if expired before checking limit
+  if rec.reset_at < now() then
+    update usage
+    set query_count = 1, reset_at = now() + interval '30 days'
+    where ip = client_ip
+    returning * into rec;
+    return json_build_object(
+      'allowed',   true,
+      'remaining', free_limit - 1,
+      'reset_at',  rec.reset_at
+    );
   end if;
 
-  update usage set query_count = query_count + 1 where ip = client_ip;
-  remaining := free_limit - rec.query_count - 1;
+  -- Blocked: already at or over limit
+  if rec.query_count >= free_limit then
+    return json_build_object(
+      'allowed',   false,
+      'remaining', 0,
+      'reset_at',  rec.reset_at
+    );
+  end if;
 
-  return json_build_object('allowed', true, 'remaining', remaining, 'reset_at', rec.reset_at);
+  -- Allowed: atomically increment
+  update usage set query_count = query_count + 1 where ip = client_ip;
+  return json_build_object(
+    'allowed',   true,
+    'remaining', free_limit - rec.query_count - 1,
+    'reset_at',  rec.reset_at
+  );
 end;
 $$;
 
 -- ── Row-level security ────────────────────────────────────────────────────────
--- chunks: readable by anon (via RPC only), writable by service_role only
+-- chunks: no direct REST access for anon. All reads go through match_chunks RPC
+-- which runs as SECURITY DEFINER (owner privileges, bypasses RLS). This prevents
+-- bulk corpus extraction via GET /rest/v1/chunks?select=*.
 alter table chunks enable row level security;
-create policy "anon can read chunks via rpc"
-  on chunks for select to anon using (true);
+-- No anon select policy — direct REST reads are blocked.
+-- match_chunks is SECURITY DEFINER so it reads chunks as the function owner,
+-- not as the calling anon role, and therefore bypasses this RLS restriction.
+create policy "service_role full access on chunks"
+  on chunks for all to service_role using (true) with check (true);
 
 -- usage: no direct anon access — all reads/writes go through the
 -- check_and_increment_usage SECURITY DEFINER function above.
