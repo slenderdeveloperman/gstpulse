@@ -31,3 +31,4 @@ tests/query_eval_*.json
 # OS
 .DS_Store
 Thumbs.db
+.vercel

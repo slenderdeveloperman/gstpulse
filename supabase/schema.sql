@@ -155,3 +155,326 @@ create policy "service_role full access on chunks"
 alter table usage enable row level security;
 create policy "service_role only on usage"
   on usage for all to service_role using (true) with check (true);
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- PHASE 3 — Auth, history, alerts, subscriptions, teams
+-- Run in the Supabase SQL editor after Phase 1/2 schema is applied.
+-- Requires: Supabase Auth enabled in the project dashboard.
+-- ═════════════════════════════════════════════════════════════════════════════
+
+-- ── profiles ─────────────────────────────────────────────────────────────────
+-- One row per user, auto-created by trigger on auth.users insert.
+-- display_name is pulled from OAuth metadata (Google full_name) or set manually.
+
+create table if not exists profiles (
+  id            uuid primary key references auth.users(id) on delete cascade,
+  display_name  text,
+  created_at    timestamptz default now()
+);
+
+-- Auto-create a profile row whenever a new user signs up (email or OAuth).
+create or replace function handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, display_name)
+  values (
+    new.id,
+    coalesce(
+      new.raw_user_meta_data ->> 'full_name',
+      new.raw_user_meta_data ->> 'name',
+      split_part(new.email, '@', 1)   -- fallback: username part of email
+    )
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+create or replace trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure handle_new_user();
+
+-- ── subscriptions ─────────────────────────────────────────────────────────────
+-- Tracks individual Pro subscriptions. Firm subscriptions are tracked on teams.
+-- Written by api/activate.js (service_role) after Razorpay payment confirmation.
+-- Never written by the client directly.
+
+create table if not exists subscriptions (
+  id                   uuid primary key default gen_random_uuid(),
+  user_id              uuid not null references auth.users(id) on delete cascade,
+  plan                 text not null check (plan in ('pro_individual', 'pro_firm')),
+  valid_until          timestamptz not null,
+  razorpay_order_id    text,
+  razorpay_payment_id  text unique,       -- unique prevents double-activation
+  created_at           timestamptz default now()
+);
+
+create index if not exists subscriptions_user_id_idx on subscriptions (user_id);
+
+-- ── teams ─────────────────────────────────────────────────────────────────────
+-- A team is created by a firm buyer. Up to max_seats members can be added.
+-- valid_until comes from the firm Pro subscription payment.
+
+create table if not exists teams (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null,
+  owner_id     uuid not null references auth.users(id),
+  valid_until  timestamptz,               -- null = no active subscription
+  max_seats    int not null default 5,
+  created_at   timestamptz default now()
+);
+
+-- ── team_members ──────────────────────────────────────────────────────────────
+-- Many-to-many: users ↔ teams. Owner always has role='owner'.
+-- Seat count enforced by check_seat_limit trigger below.
+
+create table if not exists team_members (
+  team_id    uuid not null references teams(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  role       text not null default 'member' check (role in ('owner', 'member')),
+  joined_at  timestamptz default now(),
+  primary key (team_id, user_id)
+);
+
+create index if not exists team_members_user_id_idx on team_members (user_id);
+
+-- Prevent adding members beyond max_seats.
+create or replace function check_seat_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_seats int;
+  max_seats     int;
+begin
+  select count(*), t.max_seats
+  into current_seats, max_seats
+  from team_members tm
+  join teams t on t.id = tm.team_id
+  where tm.team_id = new.team_id
+  group by t.max_seats;
+
+  if current_seats >= max_seats then
+    raise exception 'Team seat limit reached (max %)', max_seats;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace trigger enforce_seat_limit
+  before insert on team_members
+  for each row execute procedure check_seat_limit();
+
+-- ── query_history ─────────────────────────────────────────────────────────────
+-- One row per answered query for logged-in users. Anonymous queries are not saved.
+-- sources stored as JSONB array: [{source_id, date, topic_tags, excerpt}]
+
+create table if not exists query_history (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  query       text not null,
+  answer      text,
+  sources     jsonb,
+  created_at  timestamptz default now()
+);
+
+create index if not exists query_history_user_id_idx
+  on query_history (user_id, created_at desc);
+
+-- ── alert_subscriptions ───────────────────────────────────────────────────────
+-- Users subscribe to specific topic IDs from the 12-topic taxonomy.
+-- topic_id matches the prediction engine's topic keys (e.g. 'itc_eligibility').
+-- threshold_delta: notify when a topic's probability shifts by ≥ this many points
+-- between consecutive latest.json generations.
+-- The GitHub Actions alerts workflow reads this table (service_role) and sends
+-- email via Resend. email column is denormalised for simpler workflow queries.
+
+create table if not exists alert_subscriptions (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references auth.users(id) on delete cascade,
+  topic_id         text not null,
+  threshold_delta  int not null default 10 check (threshold_delta between 1 and 100),
+  email            text not null,
+  active           boolean not null default true,
+  created_at       timestamptz default now(),
+  unique (user_id, topic_id)   -- one subscription per topic per user; use UPDATE to change threshold
+);
+
+create index if not exists alert_subscriptions_topic_id_idx
+  on alert_subscriptions (topic_id) where active = true;
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- PHASE 3 — RPCs
+-- ═════════════════════════════════════════════════════════════════════════════
+
+-- ── is_pro ────────────────────────────────────────────────────────────────────
+-- Single call from api/query.js to check whether a user has Pro access,
+-- either via an individual subscription or a team membership.
+-- Returns true/false — caller decides whether to skip IP rate limiting.
+-- SECURITY DEFINER: readable by anon/authenticated with just the anon key.
+
+create or replace function is_pro (p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  -- Individual Pro subscription still valid
+  select exists (
+    select 1 from subscriptions
+    where user_id = p_user_id
+      and valid_until > now()
+  )
+  or
+  -- Member of a team with an active firm subscription
+  exists (
+    select 1
+    from team_members tm
+    join teams t on t.id = tm.team_id
+    where tm.user_id = p_user_id
+      and t.valid_until > now()
+  );
+$$;
+
+-- ── save_query ────────────────────────────────────────────────────────────────
+-- Called by api/query.js after a successful answer to persist history.
+-- SECURITY DEFINER so the edge function can write with the anon key
+-- (the service key is not exposed to the Vercel edge runtime).
+-- p_sources: JSON array string — parsed to jsonb inside the function.
+
+create or replace function save_query (
+  p_user_id  uuid,
+  p_query    text,
+  p_answer   text,
+  p_sources  text   -- JSON array string from the edge function
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_id uuid;
+begin
+  insert into query_history (user_id, query, answer, sources)
+  values (p_user_id, p_query, p_answer, p_sources::jsonb)
+  returning id into new_id;
+  return new_id;
+end;
+$$;
+
+-- ── get_history ───────────────────────────────────────────────────────────────
+-- Returns the 50 most recent queries for a user.
+-- SECURITY DEFINER: callable with anon key; enforces user_id = caller only
+-- by comparing p_user_id to auth.uid() — rejects mismatched requests.
+
+create or replace function get_history (p_user_id uuid)
+returns table (
+  id          uuid,
+  query       text,
+  answer      text,
+  sources     jsonb,
+  created_at  timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  -- Callers may only fetch their own history.
+  -- auth.uid() is set by Supabase from the JWT in the Authorization header.
+  if auth.uid() != p_user_id then
+    raise exception 'Access denied';
+  end if;
+
+  return query
+    select h.id, h.query, h.answer, h.sources, h.created_at
+    from query_history h
+    where h.user_id = p_user_id
+    order by h.created_at desc
+    limit 50;
+end;
+$$;
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- PHASE 3 — Row-level security
+-- ═════════════════════════════════════════════════════════════════════════════
+
+-- profiles: users read/update only their own row.
+alter table profiles enable row level security;
+create policy "users manage own profile"
+  on profiles for all to authenticated
+  using (id = auth.uid()) with check (id = auth.uid());
+create policy "service_role full access on profiles"
+  on profiles for all to service_role using (true) with check (true);
+
+-- subscriptions: users read their own; writes only via service_role (api/activate.js).
+alter table subscriptions enable row level security;
+create policy "users read own subscriptions"
+  on subscriptions for select to authenticated
+  using (user_id = auth.uid());
+create policy "service_role full access on subscriptions"
+  on subscriptions for all to service_role using (true) with check (true);
+
+-- teams: owner manages all; members read only.
+alter table teams enable row level security;
+create policy "owner manages team"
+  on teams for all to authenticated
+  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+create policy "members read own team"
+  on teams for select to authenticated
+  using (
+    exists (
+      select 1 from team_members
+      where team_id = teams.id and user_id = auth.uid()
+    )
+  );
+create policy "service_role full access on teams"
+  on teams for all to service_role using (true) with check (true);
+
+-- team_members: members see their own row; owner sees all rows in their team.
+alter table team_members enable row level security;
+create policy "members read own membership"
+  on team_members for select to authenticated
+  using (user_id = auth.uid());
+create policy "owner manages team members"
+  on team_members for all to authenticated
+  using (
+    exists (
+      select 1 from teams
+      where id = team_members.team_id and owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from teams
+      where id = team_members.team_id and owner_id = auth.uid()
+    )
+  );
+create policy "service_role full access on team_members"
+  on team_members for all to service_role using (true) with check (true);
+
+-- query_history: users see and insert only their own rows.
+-- Deletes not allowed — history is append-only from the user's perspective.
+alter table query_history enable row level security;
+create policy "users manage own history"
+  on query_history for select to authenticated
+  using (user_id = auth.uid());
+create policy "service_role full access on query_history"
+  on query_history for all to service_role using (true) with check (true);
+
+-- alert_subscriptions: users manage their own subscriptions.
+alter table alert_subscriptions enable row level security;
+create policy "users manage own alerts"
+  on alert_subscriptions for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "service_role full access on alert_subscriptions"
+  on alert_subscriptions for all to service_role using (true) with check (true);
