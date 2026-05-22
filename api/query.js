@@ -85,6 +85,30 @@ Respond in this format:
 **Confidence note**: [any caveats about data coverage]`;
 }
 
+// Extract Supabase user_id from JWT in Authorization header.
+// Returns null if header is absent, malformed, or the JWT is invalid.
+// We use getUser() (server-side Supabase call) rather than decoding locally —
+// this validates the signature and expiry without embedding the JWT secret here.
+async function getUserId(request, supabaseUrl, supabaseKey) {
+  const authHeader = request.headers.get('authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7).trim();
+  if (!token) return null;
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': supabaseKey,
+      },
+    });
+    if (!res.ok) return null;
+    const user = await res.json();
+    return user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(request) {
   const r = (body, status = 200) => json(body, status, request);
 
@@ -122,19 +146,40 @@ export default async function handler(request) {
       'Content-Type': 'application/json',
     };
 
-    // ── Rate limit ─────────────────────────────────────────────────────────────
+    // ── Auth: identify caller, check Pro status ────────────────────────────────
+    // getUserId validates the JWT server-side — returns null for anon requests.
+    // is_pro() is a single DB call that checks both individual subscriptions and
+    // team memberships; Pro users bypass IP rate limiting entirely.
+    const userId = await getUserId(request, supabaseUrl, supabaseKey);
+    let isPro = false;
+    if (userId) {
+      try {
+        const proRes = await fetch(`${supabaseUrl}/rest/v1/rpc/is_pro`, {
+          method: 'POST',
+          headers: supabaseHeaders,
+          body: JSON.stringify({ p_user_id: userId }),
+        });
+        if (proRes.ok) isPro = await proRes.json();
+      } catch (e) {
+        console.error('[is_pro]', e.message);
+      }
+    }
+
+    // ── Rate limit (anon and free-tier users only) ─────────────────────────────
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '0.0.0.0';
     let rl = null;
-    try {
-      const rlRes = await fetch(`${supabaseUrl}/rest/v1/rpc/check_and_increment_usage`, {
-        method: 'POST',
-        headers: supabaseHeaders,
-        body: JSON.stringify({ client_ip: ip, free_limit: 5 }),
-      });
-      if (rlRes.ok) rl = await rlRes.json();
-      else console.error('[rate-limit]', rlRes.status, await rlRes.text());
-    } catch (e) {
-      console.error('[rate-limit]', e.message);
+    if (!isPro) {
+      try {
+        const rlRes = await fetch(`${supabaseUrl}/rest/v1/rpc/check_and_increment_usage`, {
+          method: 'POST',
+          headers: supabaseHeaders,
+          body: JSON.stringify({ client_ip: ip, free_limit: 5 }),
+        });
+        if (rlRes.ok) rl = await rlRes.json();
+        else console.error('[rate-limit]', rlRes.status, await rlRes.text());
+      } catch (e) {
+        console.error('[rate-limit]', e.message);
+      }
     }
 
     if (rl && !rl.allowed) {
@@ -218,15 +263,34 @@ export default async function handler(request) {
     const sarvamData = await sarvamRes.json();
     const answer = sarvamData.choices?.[0]?.message?.content ?? '';
 
+    const sourcesForClient = chunks.slice(0, 4).map(c => ({
+      source_id: c.source_id,
+      date: c.date,
+      topic_tags: c.topic_tags,
+      excerpt: (c.content ?? '').slice(0, 250),
+    }));
+
+    // ── Persist history for logged-in users ────────────────────────────────────
+    // Fire-and-forget: history failure must never block the response.
+    // save_query is SECURITY DEFINER — callable with the anon key once user is identified.
+    if (userId) {
+      fetch(`${supabaseUrl}/rest/v1/rpc/save_query`, {
+        method: 'POST',
+        headers: supabaseHeaders,
+        body: JSON.stringify({
+          p_user_id: userId,
+          p_query: cleanQuery,
+          p_answer: answer,
+          p_sources: JSON.stringify(sourcesForClient),
+        }),
+      }).catch(e => console.error('[save_query]', e.message));
+    }
+
     return r({
       answer,
-      sources: chunks.slice(0, 4).map(c => ({
-        source_id: c.source_id,
-        date: c.date,
-        topic_tags: c.topic_tags,
-        excerpt: (c.content ?? '').slice(0, 250),
-      })),
-      remaining_queries: rl?.remaining ?? null,
+      sources: sourcesForClient,
+      remaining_queries: isPro ? null : (rl?.remaining ?? null),
+      is_pro: isPro,
       query: cleanQuery,
     });
 
