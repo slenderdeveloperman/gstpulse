@@ -162,14 +162,29 @@ class Embedder:
 
         return upserted
 
-    def query(self, text: str, n_results: int = 8) -> list[dict]:
-        """Embed a query string locally and run semantic search via Supabase match_chunks RPC."""
+    def query(self, text: str, n_results: int = 5, match_threshold: float = 0.3) -> list[dict]:
+        """Embed a query string locally and run semantic search via Supabase match_chunks RPC.
+
+        match_threshold must be passed — omitting it causes PostgREST to return
+        HTTP 300 (Multiple Choices) because it cannot resolve the function overload.
+        """
         embedding = self._embed_texts_local([text])[0]
 
+        # RPC calls use plain auth headers — no 'Prefer: resolution=merge-duplicates'
+        # (that header is for upsert operations only)
+        rpc_headers = {
+            "apikey": self._service_key,
+            "Authorization": f"Bearer {self._service_key}",
+            "Content-Type": "application/json",
+        }
         resp = self._http.post(
             f"{self._supabase_url}/rest/v1/rpc/match_chunks",
-            headers=self._rest_headers,
-            json={"query_embedding": embedding, "match_count": n_results},
+            headers=rpc_headers,
+            json={
+                "query_embedding": embedding,
+                "match_count": n_results,
+                "match_threshold": match_threshold,
+            },
         )
         resp.raise_for_status()
         results = resp.json()

@@ -513,6 +513,7 @@ class ICAIRepresentationScraper(BaseScraper):
     def scrape(self) -> list[Document]:
         docs = []
         seen_ids = set()
+        seen_urls: set[str] = set()  # dedup across source pages — same PDF listed on multiple pages
 
         for page_url, doc_type in self.SOURCES:
             print(f"[icai] fetching source page: {page_url}", flush=True)
@@ -544,6 +545,13 @@ class ICAIRepresentationScraper(BaseScraper):
                 except ValueError as e:
                     print(f"[icai] blocked: {full_url[:80]} — {e}", flush=True)
                     continue
+
+                # Dedup on normalised URL across all source pages — same PDF
+                # can appear on both budget-memorandum.html and representation.html
+                if full_url in seen_urls:
+                    print(f"[icai] duplicate URL, skipping: {full_url[:80]}", flush=True)
+                    continue
+                seen_urls.add(full_url)
 
                 doc_id = f"icai_{doc_type}_{Document.content_hash(href)}"
                 if doc_id in seen_ids:

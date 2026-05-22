@@ -1,7 +1,7 @@
 # GST Foresight — Product Specification
-**Version**: 0.2 (pre-build)
-**Last updated**: 2026-05-09
-**Status**: Approved for implementation
+**Version**: 0.3
+**Last updated**: 2026-05-22
+**Status**: Phase 1 complete (pending reextract + predict rebuild); Phase 2 in progress
 
 ---
 
@@ -270,37 +270,49 @@ Sarvam is used selectively — not as a replacement for the existing pipeline bu
 **Goal**: Replace index-level scraping with full document text.
 
 Tasks:
-- [ ] Add `pdfplumber` and `pymupdf` to requirements.txt
-- [ ] Add `fetch_pdf_text(url)` method to `BaseScraper`
-- [ ] Update all 4 active scrapers to follow PDF links and extract full text
-- [ ] Add chunker module (`processors/chunker.py`)
-- [ ] Add embedder module (`processors/embedder.py`) using sentence-transformers
-- [ ] Set up ChromaDB persistent client in `data/vectors/`
-- [ ] Update ingest CLI to run chunk → embed pipeline after tagging
-- [ ] Rebuild predictions on full-text corpus, validate against backtest cases
+- [x] Add `pdfplumber` and `pymupdf` to requirements.txt
+- [x] Add `fetch_pdf_text(url)` method to `BaseScraper` (3-tier: pdfplumber → pymupdf → Docling+RapidOCR; URL-encoding fix for space-in-filename PDFs added 2026-05-22)
+- [x] Update all scrapers to follow PDF links and extract full text (8 active scrapers)
+- [x] Add chunker module (`processors/chunker.py`)
+- [x] Add embedder module (`processors/embedder.py`) — uses Supabase pgvector (chromadb dep removed 2026-05-22)
+- [x] Vector store: Supabase pgvector (`chunks` table, `match_chunks` RPC, SECURITY DEFINER)
+- [x] Update ingest CLI to run chunk → embed pipeline after tagging
+- [ ] **Run `python -m gst_foresight reextract`** — 39 docs missing full text; URL encoding fix now applied; GST Council 50/53/54 need OCR pass
+- [ ] Rebuild predictions on full-text corpus after reextract, validate against backtest cases
 
 **Exit criteria**: Prediction engine running on full document text. Backtest accuracy unchanged or improved.
 
 ### Phase 2 — Query interface (after Phase 1)
 **Goal**: Users can ask specific questions and get grounded foresight responses.
 
-Tasks:
-- [x] Build Vercel edge function (`api/query.js`) with sanitization, CORS allowlist, 8KB body guard
-- [x] Integrate Sarvam-M API for answer generation (key in Vercel env)
+#### Built (infrastructure complete)
+- [x] Vercel edge function (`api/query.js`) — sanitization, CORS allowlist, 8KB body guard
+- [x] Sarvam-M API for answer generation (key in Vercel env)
 - [x] Supabase `match_chunks` RPC — pgvector similarity search, SECURITY DEFINER
-- [x] Supabase `embed` edge function — query-time embedding, EMBED_SECRET required
+- [x] Supabase `embed` edge function — query-time embedding, `X-Embed-Secret` required
 - [x] Supabase `check_and_increment_usage` RPC — per-IP rate limiting, TOCTOU-safe
-- [x] Add query UI panel to `index.html` (ScreenQueryResponse component)
-- [x] Implement localStorage-based free query counter (5/month soft limit)
-- [ ] Add Sarvam semantic tagging pass for council minutes and Hindi docs
-- [ ] Test with 20 representative CA queries
-- [ ] Wire `onViewAlert` to active prediction (currently always opens predictions[0])
-- [ ] Wire single-click ↗ → ScreenPredictionDetail (double-click works, single-click only sets activeId)
-- [ ] Rotate EMBED_SECRET (current value appeared in plain text in a prior session)
-- [ ] Run `tests/test_security.js` against live Vercel URL to confirm all hardening is deployed
-- [ ] Confirm end-to-end ingest → latest.json → live predictions flow on deployed site
+- [x] Query UI panel in `index.html` (`ScreenQueryResponse` component)
+- [x] localStorage-based free query counter (5/month soft limit)
 
-**Exit criteria**: Query model returns accurate, grounded responses on 85%+ of test queries.
+#### Action list (ordered by priority)
+
+**P1 — Security (do before any sharing)**
+- [x] Rotate EMBED_SECRET — done 2026-05-22
+- [x] Run `tests/test_security.js` against live Vercel URL — 25/25 passed 2026-05-22
+
+**P2 — Correctness (query flow must work end-to-end)**
+- [ ] Confirm live query works: open deployed site, type a query, verify Sarvam returns a structured foresight response (not an error or fallback)
+- [ ] Confirm ingest → `latest.json` → live predictions are in sync (predictions may be stale after reextract)
+- [ ] Test with 20 representative CA queries — manual eval: grounded signal citations? Accurate probability estimates? Target: 85% pass rate. Log failures for prompt tuning.
+
+**P3 — UI fixes (polish before sharing)**
+- [x] Fix `onViewAlert` — was always opening `predictions[0]`; root cause was row `onClick` immediately navigating away before `active` could be changed; fixed 2026-05-22
+- [x] Fix single-click ↗ → `ScreenPredictionDetail` — row click now only sets `activeId` (select); navigation via ↗ button or double-click on row; fixed 2026-05-22
+
+**P4 — Signal quality (improves answer accuracy)**
+- [ ] Sarvam semantic tagging pass for GST Council minutes — regex tagger misses deferral language ("kept in abeyance", "further deliberation"); `sarvam-2b-v0.5` classify pass on `gst_council_minutes` chunks improves topic signal without touching the prediction engine
+
+**Exit criteria**: Query model returns grounded responses on 85%+ of 20 test queries. Security hardening confirmed via test suite. No known UI bugs.
 
 ### Phase 3 — Auth + alerts (after validated query model)
 **Goal**: Give users a reason to create an account.

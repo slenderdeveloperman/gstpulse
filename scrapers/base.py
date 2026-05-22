@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse, urljoin, urlunparse, quote
 import httpx
 from bs4 import BeautifulSoup
 
@@ -154,6 +154,16 @@ class BaseScraper(ABC):
         if not any(host == d or host.endswith("." + d) for d in ALLOWED_DOMAINS):
             raise ValueError(f"fetch blocked — domain not in allowlist: {host!r}")
 
+    def _normalize_url(self, url: str) -> str:
+        """Percent-encode spaces and illegal characters in the URL path.
+
+        GOI and ICAI CloudFront PDFs frequently have spaces in filenames.
+        httpx does not auto-encode the path, so unencoded spaces cause 400/404.
+        """
+        parsed = urlparse(url)
+        encoded_path = quote(parsed.path, safe="/:@!$&'()*+,;=")
+        return urlunparse(parsed._replace(path=encoded_path))
+
     def fetch_html(self, url: str) -> BeautifulSoup:
         self._validate_url(url)
         r = self.client.get(url)
@@ -178,6 +188,7 @@ class BaseScraper(ABC):
         """
         try:
             self._validate_url(url)
+            url = self._normalize_url(url)
             r = self.client.get(url, timeout=120)
             r.raise_for_status()
             if len(r.content) > max_bytes:

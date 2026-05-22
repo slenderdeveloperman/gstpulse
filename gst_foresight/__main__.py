@@ -137,7 +137,6 @@ def cmd_status(args):
     raw_dir = Path("data/raw")
     processed_dir = Path("data/processed")
     chunks_dir = Path("data/chunks")
-    vectors_dir = Path("data/vectors")
     predictions_dir = Path("data/predictions")
 
     print("\ngst-foresight status\n")
@@ -155,15 +154,12 @@ def cmd_status(args):
     print(f"\n  processed (tagged):   {processed}")
     print(f"  chunked:              {chunked}")
 
-    if vectors_dir.exists():
-        try:
-            from processors.embedder import Embedder
-            stats = Embedder().stats()
-            print(f"  vectors (ChromaDB):   {stats['total_chunks']} chunks indexed")
-        except Exception:
-            print(f"  vectors:              dir exists (run ingest to index)")
-    else:
-        print(f"  vectors:              none yet — run ingest")
+    try:
+        from processors.embedder import Embedder
+        stats = Embedder().stats()
+        print(f"  vectors (Supabase):   {stats['total_chunks']} chunks indexed")
+    except Exception:
+        print(f"  vectors (Supabase):   unavailable — check SUPABASE_URL / SUPABASE_SERVICE_KEY in .env")
 
     latest = predictions_dir / "latest.json"
     if latest.exists():
@@ -293,7 +289,7 @@ def main():
         help="Skip Docling/RapidOCR entirely — avoids loading large ML models (use when memory is constrained)"
     )
 
-    sub.add_parser("embed", help="Embed all chunked docs into ChromaDB (run separately if ingest --skip-embed was used)")
+    sub.add_parser("embed", help="Embed all chunked docs into Supabase pgvector (run separately if ingest --skip-embed was used)")
     sub.add_parser("reextract", help="Re-fetch PDFs for raw docs where full_text_extracted=False")
     sub.add_parser("predict", help="Generate predictions from processed data")
     sub.add_parser("status", help="Show data and prediction status")
