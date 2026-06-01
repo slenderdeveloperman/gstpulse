@@ -395,7 +395,7 @@ function ScreenPredictionDetail({ tweak, onBack, onViewPricing, onViewAlert, pre
               </div>
               <div style={{ flex:1 }}/>
               <div style={{ display:'flex', gap:6 }}>
-                <button onClick={onViewAlert} style={{ fontFamily:mono, fontSize:10, padding:'8px 14px', border:`1px solid ${T.accent2}`, color:T.bg, background:T.accent2, cursor:'pointer', letterSpacing:'0.1em', textTransform:'uppercase' }}>+ Alert me</button>
+                <button onClick={() => onViewAlert && onViewAlert(prediction)} style={{ fontFamily:mono, fontSize:10, padding:'8px 14px', border:`1px solid ${T.accent2}`, color:T.bg, background:T.accent2, cursor:'pointer', letterSpacing:'0.1em', textTransform:'uppercase' }}>+ Alert me</button>
                 <button onClick={onViewPricing} style={{ fontFamily:mono, fontSize:10, padding:'8px 14px', border:`1px solid ${T.border2}`, color:T.text2, background:'transparent', cursor:'pointer', letterSpacing:'0.1em', textTransform:'uppercase' }}>↓ PDF</button>
               </div>
             </div>
@@ -1240,7 +1240,7 @@ function App() {
   const shell = (child) => <div style={{ width:'100vw', height:'100vh', background:T.bg }}>{child}</div>;
 
   if (screen === 'query') return shell(<ScreenQueryResponse tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} response={queryContext?.response} query={queryContext?.query}/>);
-  if (screen === 'prediction') return shell(<ScreenPredictionDetail tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} onViewAlert={() => goAlert(activePrediction)} prediction={activePrediction}/>);
+  if (screen === 'prediction') return shell(<ScreenPredictionDetail tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} onViewAlert={(p) => goAlert(p)} prediction={activePrediction}/>);
   if (screen === 'source') return shell(<ScreenSourceDoc tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')}/>);
   if (screen === 'alert') return shell(<ScreenAlertSetup tweak={tweak} onBack={goBack} onViewPricing={() => setScreen('pricing')} prediction={activePrediction} session={session}/>);
   if (screen === 'pricing') return shell(<ScreenPricing tweak={tweak} onBack={goBack}/>);
